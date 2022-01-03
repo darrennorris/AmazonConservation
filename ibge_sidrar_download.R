@@ -41,7 +41,7 @@ df_pop_2020a2024 <- get_sidra(x = 6579,
 
 #PIB 
 info_pib_muni <- info_sidra(5938, wb = FALSE)
-df_pib_vars <- info_pib_muni
+df_pib_vars <- info_pib_muni$variable
 df_pib_vars %>% filter(cod == "37")
 # 37 Produto Interno Bruto a preços correntes (Mil Reais)
 df_pib_2000a2004 <-  get_sidra(x = 5938, variable = 37,
@@ -49,6 +49,7 @@ df_pib_2000a2004 <-  get_sidra(x = 5938, variable = 37,
                              period = years_2000a2004,
                              header = TRUE,
                              format = 1)
+min(df_pib_2000a2004$`Ano (Código)`)
 df_pib_2005a2009 <-  get_sidra(x = 5938, variable = 37,
                                geo = "City", 
                                period = years_2005a2009,
@@ -64,7 +65,16 @@ df_pib_2015a2019 <-  get_sidra(x = 5938, variable = 37,
                                period = years_2015a2019,
                                header = TRUE,
                                format = 1)
+df_pib_2020a2024 <-  get_sidra(x = 5938, variable = 37,
+                                   geo = "City", 
+                                   period = years_2020a2024,
+                                   header = TRUE,
+                                   format = 1)
+max(df_pib_2015a2019$`Ano (Código)`) #2018
 #PIB agri
+#Examples:
+#https://greenjurisdictions.org/
+#https://greenjurisdictions.org/jurisdictional_profile?region=3216,states#perfil_prev2  
 df_pib_vars %>% filter(cod == "513")
 #Valor adicionado bruto a preços correntes da agropecuária (Mil Reais)
 df_pibagri_2000a2004 <-  get_sidra(x = 5938, variable = 513,
@@ -82,17 +92,19 @@ df_pibagri_2010a2014 <-  get_sidra(x = 5938, variable = 513,
                                period = years_2010a2014,
                                header = TRUE,
                                format = 1)
-#To do...
+
 df_pibagri_2015a2019 <-  get_sidra(x = 5938, variable = 513,
                                geo = "City", 
                                period = years_2015a2019,
                                header = TRUE,
                                format = 1)
-
-
-
-dfmuni %>% filter(Ano == "2001")
-
+# No data for 2020
+df_pibagri_2020a2024 <-  get_sidra(x = 5938, variable = 513,
+                                   geo = "City", 
+                                   period = years_2020a2024,
+                                   header = TRUE,
+                                   format = 1)
+# Índices de Preços ao Consumidor
 get_sidra(x = 1419,
           variable = 63,
           period = c("last" = 12),
@@ -101,7 +113,7 @@ get_sidra(x = 1419,
           classific = "c315",
           category = list(7169),
           header = FALSE,
-          format = 3)
+          format = 4)
 
 
 #Gini index per state 2018
@@ -114,7 +126,7 @@ df_gini_ref2010 <- get_sidra(x = 5939,
           period = myyears,
           geo = "State", 
           header = TRUE,
-          format = 1)
+          format = 4)
 "Tabela 7435 - Índice de Gini do rendimento domiciliar per capita, a preços médios do ano"
 df_gini_renddom <- get_sidra(x = 7435,
           geo = "State", 
