@@ -39,7 +39,42 @@ df_pop_2020a2024 <- get_sidra(x = 6579,
                               period = years_2020a2024, 
                               header = TRUE)
 
+#Pop by state
+df_pop_state <- get_sidra(x = 6579,
+                             period = myyears,
+                             geo = "State", 
+                             header = TRUE,
+                             format = 4)
+
+#Censu 
+df_pop_state_censu <- get_sidra(x = 202,
+                          period = c("1991", "2000", "2010"),
+                          geo = "State", 
+                          header = TRUE,
+                          format = 4)
+unique(df_pop_state_censu[,"Unidade da Federação"])
+bla_states <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
+                "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
+
+rbind(df_pop_state_censu %>% 
+  filter(Sexo == "Total", `Situação do domicílio` == "Total", 
+         `Unidade da Federação` %in% bla_states) %>% 
+  mutate(uf = `Unidade da Federação`, 
+         ayear = Ano,
+         total_pop = Valor) %>% 
+  select(uf, ayear, total_pop), 
+df_pop_state %>%
+  filter(`Unidade da Federação` %in% bla_states) %>% 
+  mutate(uf = `Unidade da Federação`, 
+         ayear = Ano,
+         total_pop = Valor) %>% 
+  select(uf, ayear, total_pop) 
+) -> bla_state_pop_1991_2021
+  
+write.csv(bla_state_pop_1991_2021, "bla_state_pop_1991_2021.csv", row.names = FALSE)
 #PIB 
+# Plus
+# https://www.ibge.gov.br/estatisticas/economicas/contas-nacionais/9054-contas-regionais-do-brasil.html?edicao=17236&t=downloads
 info_pib_muni <- info_sidra(5938, wb = FALSE)
 df_pib_vars <- info_pib_muni$variable
 df_pib_vars %>% filter(cod == "37")
