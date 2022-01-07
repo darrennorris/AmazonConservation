@@ -14,6 +14,16 @@ bind_rows(df_pop_2000a2004, df_pop_2005a2009,
            cod_pop = `Variável (Código)`, 
            name_pop = `Variável`) -> df_pop_2000a2021 
 
+#to get bla municipalities
+df_gdp_muni_02a19 <- read_excel("data//ibge_gdp//bla_gdp_municipality_2002_2019.xlsx", 
+                                .name_repair = "universal") %>% 
+  rename(mun_cod = `Código.do.Município`)
+
+bla_muni <- unique(df_gdp_muni_02a19$mun_cod)
+df_pop_2000a2021 %>% 
+  filter(mun_cod %in% bla_muni) -> df_bla_pop_02a19
+write.csv(df_bla_pop_02a19, "bla_municipality_pop_02a19.csv", row.names = FALSE)
+
 # Join all pib years
 bind_rows(df_pib_2000a2004, df_pib_2005a2009, 
           df_pib_2010a2014, df_pib_2015a2019) %>% 
@@ -340,5 +350,81 @@ df_lba %>%
   #facet_wrap(~ NM_UF, scales = "free_y")
 facet_wrap(~ NM_UF)
 
+#tidy GDP data
+#From https://www.ibge.gov.br/estatisticas/economicas/contas-nacionais/9088-produto-interno-bruto-dos-municipios.html?=&t=sobre
+#https://ftp.ibge.gov.br/Pib_Municipios/2019/base/base_de_dados_2002_2009_xls.zip
+#https://ftp.ibge.gov.br/Pib_Municipios/2019/base/base_de_dados_2010_2019_xls.zip
+#1999 - 2002 for conversion factor
+#https://biblioteca.ibge.gov.br/index.php/biblioteca-catalogo?view=detalhes&id=25968
+# "cd" has the data
+#https://biblioteca.ibge.gov.br/visualizacao/livros/liv5968_cd.zip
 
+df_gdp_muni_02a19 <- read_excel("data//ibge_gdp//bla_gdp_municipality_2002_2019.xlsx", 
+                                .name_repair = "universal") %>% 
+  rename(codmun7 = `Código.do.Município`)
+unique(df_gdp_muni_02a19$year) #18 years 2002 - 2019
+#df_gdp_muni_99a02 <- read_excel("data//ibge_gdp//bla_gdp_municipality_1999_2002.xlsx", 
+#                                .name_repair = "universal")
+
+#conversion factor for 2000, 2001?? check using 2002
+#Use only 2002 - 2019. conversion is not straight forward
+munitest <- sample(unique(df_gdp_muni_99a02$name_muni), 10)
+df_gdp_muni_99a02 %>% 
+  filter(year==2002, name_muni %in% munitest) %>% 
+  mutate(gdp_old = gdp_percapita_reais, 
+         gva_agri_old = gva_agri) %>% 
+  select(year, uf_sigla, name_muni, gva_agri_old, gdp_old) %>% 
+  left_join(
+    df_gdp_muni_02a19 %>% 
+      filter(year==2002, name_muni %in% munitest) %>% 
+      mutate(gdp_new = gdp_percapita_reais, 
+             gva_agri_new = gva_agri) %>% 
+      select(year, uf_sigla, name_muni, gva_agri_new, gdp_new)
+  ) %>% 
+  mutate(gva_conv = gva_agri_old / gva_agri_new, 
+         gdp_conv = gdp_old / gdp_new)
+
+#Population for gva per capita
+df_pop_muni_02a19 <- read_excel("data//bla_municipality_pop_02a19.xlsx", 
+                                .name_repair = "universal") %>% 
+  rename(year = Ano) %>% 
+  mutate(pop_total = as.numeric(pop_total))
+bla_codes <- unique(df_pop_muni_02a19$mun_cod)  
+unique(df_pop_muni_02a19$year)
+df_pop_muni_02a19 %>% filter(is.na(pop_total)) %>% select(`Município`, year) %>% 
+  arrange(`Município`, year)
+
+#include 10 year census data
+#  pop_tot = mulhertot + homemtot
+censu <- read_excel("data//pnud_municipios.xlsx", sheet = "pnud_municipios", 
+                    .name_repair = "universal", na = c("", "NA")) %>% 
+  filter(ano %in% c(2000, 2010))
+
+df_pop_muni_02a19 %>% 
+  rename(codmun7 = mun_cod) %>% 
+  select(year, codmun7, pop_total) %>%
+  bind_rows(
+    censu %>% 
+      filter(codmun7 %in% bla_codes) %>%
+      mutate(pop_total = pesotot,
+             year = ano) %>% 
+      select(year, codmun7, pop_total) 
+  ) %>% 
+  pivot_wider(id_cols = codmun7, names_from = year, values_from = pop_total) %>%
+  left_join(df_gdp_muni_02a19 %>% 
+              mutate(codmun7 = `Código.do.Município`) %>%
+              select(codmun7, uf_sigla, uf, name_muni) %>% 
+              group_by(codmun7, uf_sigla, uf, name_muni) %>% summarise(acount = n()) %>% 
+              ungroup()) %>% select(!acount) %>% 
+  pivot_longer(cols = !c("codmun7", "uf_sigla", "uf", "name_muni"), 
+               names_to = "year", values_to = "tot_pop") %>% 
+  mutate(year = as.numeric(year)) %>% arrange(codmun7, year) -> df_pop_muni_00a19
+
+df_gdp_muni_02a19 %>% left_join(df_pop_muni_00a19 %>% select(year, codmun7, tot_pop), 
+                                by = c( "year" = "year", "codmun7" = "codmun7")) -> df_gdp_muni_02a19
+#gva per capita
+df_gdp_muni_02a19 %>% 
+  mutate(gva_agri_percapita_reais = (gva_agri*1000) / tot_pop) -> df_gdp_muni_02a19
+write.csv(df_gdp_muni_02a19, 
+          "bla_municipality_gdppop_02a19.csv", row.names = FALSE)
 

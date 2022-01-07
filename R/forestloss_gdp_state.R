@@ -4,28 +4,46 @@
 library(tidyverse)
 library(readxl)
 library(gridExtra)
+library(psych)
 
 #State level
-#GDP (IBGE 4 january 2022 "Especiais" com dados apresentados no informativo
+#GDP (IBGE 4 january 2022 "Especiais" com os dados apresentados no informativo
 # https://biblioteca.ibge.gov.br/index.php/biblioteca-catalogo?view=detalhes&id=2101873
 # https://biblioteca.ibge.gov.br/visualizacao/livros/liv101873_informativo.pdf
 #excel files
-# https://ftp.ibge.gov.br/Contas_Regionais/2019/xls/Especiais_2010_2019_xls.zip)
+# https://ftp.ibge.gov.br/Contas_Regionais/2019/xls/Especiais_2010_2019_xls.zip
+# https://ftp.ibge.gov.br/Contas_Regionais/1985_a_2003/Especiais/
 
 df_gdp_state <- read_excel("data//bla_gdp2002_2019.xlsx", 
            .name_repair = "universal") %>% 
   pivot_longer(!uf, names_to = "ayear", names_prefix ="...", 
                values_to = "gdp_reais_millions") %>% 
   mutate(ayear = as.numeric(ayear))
+df_gdp_state %>% filter(ayear==2007)
+df_gdp_state %>% pull(ayear) %>% unique()
+
+#correct 2002 PIB values using IPCA at 2.676. I.e 10 in 2002 is 26.76 in 2018 
+
 #Population (from ""ibge_sidrar_download.R)
 df_pop_state <- read_excel("data//bla_state_pop_1991_2021.xlsx", 
                      .name_repair = "universal")
+df_pop_state %>% filter(Ano=="2007") #missing population data for 2007
+df_pop_state %>% pull(ayear) %>% unique()
+#https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html?edicao=17283&t=downloads
+#2021 estimates from https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html?=&t=resultados
+
+
+
+
+
 df_gdp_state %>% right_join(df_pop_state) %>% 
   mutate(gdp_per_capita = (gdp_reais_millions * 1000000) / total_pop) -> df_state_gdp
 
 # GDP per capita across the Brazilian Legal Amazon
 # Conversion to US$ based on 2019 annual rate:
 # https://www.irs.gov/individuals/international-taxpayers/yearly-average-currency-exchange-rates
+df_state_gdp %>% filter(ayear==2007)
+
 df_state_gdp %>% filter(!is.na(gdp_per_capita)) %>%
   group_by(ayear) %>% 
   summarise(tot_pop = sum(total_pop, na.rm = TRUE), 
@@ -123,7 +141,7 @@ dfhansen_coverloss <- read_excel("data//brazil_gfw_loss_2021_hansen.xlsx",
 
 #Long format
 dfhansen_forestloss_primary[,-c(1,2,4)] %>% 
-  pivot_longer(!admin1, names_to = "ayear", names_prefix ="...", 
+  pivot_longer(!c(admin1, admin2), names_to = "ayear", names_prefix ="...", 
                             values_to = "primary_loss") %>% 
                  mutate(ayear = as.numeric(ayear)) %>% right_join(
 dfhansen_coverloss[,-c(1,2,4)] %>% 
@@ -426,3 +444,24 @@ gridExtra::grid.arrange(figa_deforestation_gdp,
                         figb_forestloss_gd, 
                         figc_covertransition_gdp, ncol = 1)
 dev.off()
+
+#correlation between measures
+df_bla_gdp %>% mutate(year = ayear) %>% 
+  select(year, tot_pop, tot_gdp, gdp_per_capita_reais, gdp_per_capita_usd) %>% 
+  left_join(
+dfhansen_long %>% 
+  group_by(year) %>% summarise(area_km2_hansen = sum(area_km2, na.rm = TRUE)) %>% 
+  left_join(
+dfinpe_forestloss %>% 
+  group_by(year) %>% summarise(area_km2_inpe = sum(area_km2, na.rm = TRUE)) 
+) %>% left_join(
+dfmapbiomas_forest_transition_long %>% 
+  filter(from_level_2 != "Magrove") %>% 
+  mutate(year = as.numeric(substr(ayear,6,11))) %>% 
+  group_by(year) %>% summarise(area_km2_mapbiomas = sum(area_km2, na.rm = TRUE))
+)
+) -> df_bla_summary
+
+psych::pairs.panels(df_bla_summary[, c("gdp_per_capita_usd", "area_km2_hansen", 
+                                       "area_km2_inpe", "area_km2_mapbiomas")], 
+                    method = "spearman")

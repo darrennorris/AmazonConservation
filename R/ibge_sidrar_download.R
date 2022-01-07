@@ -38,6 +38,11 @@ df_pop_2020a2024 <- get_sidra(x = 6579,
                               geo = "City", 
                               period = years_2020a2024, 
                               header = TRUE)
+#Censu 
+df_pop_muni_censu <- get_sidra(x = 202,
+                                period = c("2000"),
+                                geo = "City", 
+                                header = TRUE)
 
 #Pop by state
 df_pop_state <- get_sidra(x = 6579,
@@ -45,7 +50,7 @@ df_pop_state <- get_sidra(x = 6579,
                              geo = "State", 
                              header = TRUE,
                              format = 4)
-
+unique(df_pop_state$Ano) #missing 2007
 #Censu 
 df_pop_state_censu <- get_sidra(x = 202,
                           period = c("1991", "2000", "2010"),
