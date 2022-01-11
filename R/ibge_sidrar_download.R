@@ -174,12 +174,46 @@ df_gini_renddom <- get_sidra(x = 7435,
           header = TRUE,
           format = 1)
 
-
-
-
 #PIB
 search_sidra(c("pib"))
 # "Tabela 6784 - Produto Interno Bruto, Produto Interno Bruto per capita, População residente e Deflator"                                           
 # "Tabela 6795 - Indicador 9.4.1 - Emissão de CO2 pelo PIB"                                                                                         
 # "Tabela 6840 - Indicador 2.a.1 - Índice de orientação agrícola para a despesa pública"                                                            
 # "Tabela 7223 - Indicador 17.1.1 - Total das receitas do Governo em percentagem do PIB, por fonte" 
+
+
+#Education
+#A taxa de escolarização é o percentual de estudantes de determinada faixa etária no total de pessoas dessa mesma faixa etária.
+info_edu_muni <- info_sidra(7138, wb = FALSE)
+df_edu_vars <- info_edu_muni$variable
+df_edu_vars %>% filter(cod == "37")
+# taxa
+df_edu_taxa16 <- get_sidra(x = 7138,
+                             geo = "City", 
+                             period = "2016",
+                             header = TRUE,
+                             format = 4)
+unique(df_edu_taxa16$Variável)
+
+#Tabela 7267 - Pessoas de 14 anos ou mais de idade, por sexo e grupamentos de nível de instrução
+info_edu_muni <- info_sidra(7267, wb = FALSE)
+df_edu_vars <- info_edu_muni$variable
+df_edu_vars %>% filter(cod == "37")
+
+# taxa
+#7267	Pessoas de 14 anos ou mais de idade, por sexo e grupamentos de nível de instrução
+df_edu_completo <- get_sidra(x = 7267,
+                           geo = "City", 
+                           period = years_2015a2019,
+                           header = TRUE,
+                           format = 4)
+
+#7269	Pessoas de 25 anos ou mais de idade, por sexo e grupamentos de nível de instrução
+# t_super25m	% de 25 anos ou mais com superior completo	Percentual da população de 25 anos ou mais com superior completo	Razão entre a população de 25 anos ou mais de idade que concluiu pelo menos a graduação do ensino superior e o total de pessoas nesta faixa etária multiplicado por 100.
+
+df_edu_completo_25anos <- get_sidra(x = 7269,
+                             geo = "City", 
+                             period = years_2015a2019,
+                             header = TRUE,
+                             format = 4)
+unique(df_edu_completo_25anos[,15]) #[5] "Superior completo"

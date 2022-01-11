@@ -32,19 +32,21 @@ bla_state_capitals <- data.frame(name_muni = c("Manaus", "Macapá", "Porto Velho
 # https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774-malhas.html?=&t=downloads
 ibge_muni <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\analysis\\br_municipios_20200807\\BR_Municipios_2019.shp"
 sf_ninestate_muni <- st_read(ibge_muni) %>% filter(SIGLA_UF %in% bla_state_siglas)
-st_write(sf_ninestate_muni, "ninestate_muni.shp")
+#Export
+#st_write(sf_ninestate_muni, "vector\\ninestate_muni.shp")
+
 #States
 ibge_states <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\analysis\\br_unidades_da_federacao\\BR_UF_2019.shp"
 sf_ninestate <- st_read(ibge_states) %>% filter(SIGLA_UF %in% bla_state_siglas)
-st_write(sf_ninestate, "ninestate_poly.shp")
 sf_ninestate %>% ggplot() + geom_sf(aes(fill = SIGLA_UF))
+#Export
+#st_write(sf_ninestate, "vector\\ninestate_poly.shp")
 
 #GDP per capita and GVA by agriculture per capita 2002 - 2019 (from ibge_sidrar_tidy)
 df_gdppop_muni_02a19 <- read_excel("data//bla_municipality_gdppop_02a19.xlsx", 
                                    na = c("", "NA"),
                                 .name_repair = "universal")
  			
-
 
 #Interpolate 2007 (to do......)
 
@@ -68,7 +70,7 @@ df_gdppop_muni_02a19 %>%
          flag_metropolitan = if_else(is.na(Região.Metropolitana), 
                                      "other", "metropolitan"), 
          flag_urban = if_else(is.na(Nome.Concentração.Urbana), "rural", "urban"), 
-         flag_capital = if_else(codmun7 %in% state_capitals$codmun7, 
+         flag_capital = if_else(codmun7 %in% bla_state_capitals$codmun7, 
                                 "yes", "no")) %>%
   ggplot(aes(x =uf_sigla, y=tot_pop)) + 
   geom_point(aes(shape = flag_capital)) +
@@ -93,7 +95,7 @@ df_gdppop_muni_02a19 %>%
          flag_metropolitan = if_else(is.na(Região.Metropolitana), 
                                      "other", "metropolitan"), 
          flag_urban = if_else(is.na(Nome.Concentração.Urbana), "rural", "urban"), 
-         flag_capital = if_else(codmun7 %in% state_capitals$codmun7, 
+         flag_capital = if_else(codmun7 %in% bla_state_capitals$codmun7, 
                                 "yes", "no")) %>%
   ggplot(aes(x =uf_sigla, y=gdp_percapita_usd)) +
   geom_point(aes(shape = flag_capital)) + 
@@ -245,7 +247,7 @@ df_regressions_gva_agri_out %>%
 dfmapbiomas_transition_muni <- read_excel("data//Mapbiomas-Brazil-transition.xlsx", 
                                           sheet = "Sheet1", 
                                           .name_repair = "universal") %>% 
-  filter(state %in% bla_states)
+  filter(state %in% bla_state_names)
 
 cols_transition <- c(paste("..",2001:2019,".", 2002:2020, sep=""))
 dfmapbiomas_transition_muni %>% 
@@ -271,7 +273,7 @@ df_muni_cagr %>% filter(codmun7 == 5104542) #Fortaleza do Tabocão
 
 #long format with annual totals
 dfmapbiomas_forest_transition_muni %>% 
-  select(state, city, from_level_2, cols_transition) %>% 
+  select(state, city, from_level_2, all_of(cols_transition)) %>% 
   pivot_longer(cols = starts_with(".."), names_to = "ayear", names_prefix ="..", 
                values_to = "total_forestcover_loss") %>% 
   group_by(state, city, from_level_2, ayear) %>% 
@@ -291,7 +293,7 @@ dfmapbiomas_forest_transition_muni_long %>%
             by = c("state" = "uf",  "city"="NM_MUN")) %>% 
   filter(!is.na(gdp_start)) -> df_muni_cagr_mapbiomas #769
 
-#First look 
+#Add usefull flags 
 df_muni_cagr_mapbiomas %>% 
   left_join(data.frame(sf_ninestate_muni) %>% select(-geometry) %>% 
               mutate(codmun7 = as.numeric(CD_MUN))) %>% 
@@ -301,9 +303,12 @@ df_muni_cagr_mapbiomas %>%
                      flag_metropolitan = if_else(is.na(Região.Metropolitana), 
                                                  "other", "metropolitan"), 
                      flag_urban = if_else(is.na(Nome.Concentração.Urbana), "rural", "urban"), 
-                     flag_capital = if_else(codmun7 %in% state_capitals$codmun7, 
+                     flag_capital = if_else(codmun7 %in% bla_state_capitals$codmun7, 
                                             "yes", "no"))) %>% 
   mutate(tot_transition_percent = (tot_transition_km2 / AREA_KM2)*100) -> df_figgrowth
+
+#Export
+#write.csv(df_figgrowth, "data\\bla_municipality_gdp_forestloss.csv", row.names = FALSE)
 
 df_figgrowth %>%  
 ggplot(aes(x=tot_transition_km2, y = cagr_gdp_percapita)) + 
@@ -326,7 +331,6 @@ fig_gdpgrowth
 dev.off()
 
 df_figgrowth %>%  
-  mutate(tot_transition_percent = (tot_transition_km2 / AREA_KM2)*100) %>%
   ggplot(aes(x=tot_transition_percent, y = cagr_gdp_percapita)) + 
   geom_point(aes(colour=flag_urban, shape=flag_capital)) + 
   stat_smooth(method = "gam") + 
