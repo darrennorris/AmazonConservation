@@ -27,3 +27,11 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 AmazonConservation.Rproj
+data
+forestloss.RData
+sidra_download.RData
+forestloss_municipality.RData
+sidra_download_edu.RData
+gdp_humancapital.RData
+edu_failure.RData
+forestloss_state.RData
