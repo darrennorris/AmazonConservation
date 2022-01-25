@@ -1,10 +1,34 @@
-#Forest loss
+#Forest loss, gdp, education
 
 #packages
 library(tidyverse)
 library(readxl)
 library(gridExtra)
 library(psych)
+library(sf)
+
+#Basic reference vectors
+#Not obvious how to select state capitals
+bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
+                     "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
+bla_state_siglas <- c("AC", "AP", "AM", "MA", 
+                      "MT", "PA", "TO", "RO", "RR")
+bla_state_capitals <- data.frame(name_muni = c("Manaus", "Macapá", "Porto Velho", "Rio Branco", 
+                                               "Boa Vista",
+                                               "São Luís", "Cuiabá", "Belém", "Palmas"), 
+                                 codmun7 = c(1302603, 1600303, 1100205, 1200401, 
+                                             1400100,
+                                             2111300, 5103403, 1501402, 1721000)
+)
+
+# Municipality names, codes, polygons and areas from IBGE. Updated August 2020. Accessed 8 January 2022
+# https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774-malhas.html?=&t=downloads
+ibge_muni <- "vector\\ninestate_muni.shp"
+sf_ninestate_muni <- st_read(ibge_muni) %>% filter(SIGLA_UF %in% bla_state_siglas)
+#States
+ibge_states <- "vector\\ninestate_poly.shp"
+sf_ninestate <- st_read(ibge_states) %>% filter(SIGLA_UF %in% bla_state_siglas)
+sf_ninestate %>% ggplot() + geom_sf(aes(fill = SIGLA_UF))
 
 #State level
 #GDP (IBGE 4 january 2022 "Especiais" com os dados apresentados no informativo
@@ -465,3 +489,272 @@ dfmapbiomas_forest_transition_long %>%
 psych::pairs.panels(df_bla_summary[, c("gdp_per_capita_usd", "area_km2_hansen", 
                                        "area_km2_inpe", "area_km2_mapbiomas")], 
                     method = "spearman")
+
+#State GDP per capita and GVA values as %
+#GVA as % 2002 - 2019
+df_gva_state_2002_2019 <- read_excel("data//ibge_gdp//bla_gva_state_2002_2019.xlsx", 
+                           .name_repair = "universal") %>% 
+  pivot_longer(!c(uf,gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  mutate(ayear = as.numeric(ayear))
+unique(df_gva_state_2002_2019$gva_category)
+industry <- c("Indústria extrativa mineral", "Indústria de transformação", 
+              "Eletricidade, gás e água", "Construção")
+services <- c("Comércio e reparação de veículos e de objetos pessoais e de uso doméstico", 
+              "Alojamento e alimentação", "Transportes e armazenagem", "Comunicações", 
+              "Intermediação financeira", 
+              "Atividades imobiliárias, aluguéis e serviços prestados às empresas", 
+              "Administração pública, defesa e seguridade social", 
+              "Saúde e educação mercantis", "Outros serviços coletivos, sociais e pessoais")
+#Specify column types for when aa yeears are empty
+mytypes <- c("text", rep("numeric", 20))
+# summarise data from 9 sheets
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "RO", skip = 7, n_max = 15, na = c("", "..."),
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Rondônia") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE)) %>%
+bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "AC", skip = 7, n_max = 15, na = c("", "..."),
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Acre") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "AM", skip = 7, n_max = 15, na = c("", "..."),
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Amazonas") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "RR", skip = 7, n_max = 15, na = c("", "..."),
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Roraima") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "PA", skip = 7, n_max = 15, na = c("", "..."),
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Pará") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "AP", skip = 7, n_max = 15, na = c("", "..."),
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Amapá") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "TO", skip = 7, n_max = 15, na = c("", "..."),
+           .name_repair = "universal", col_types = mytypes) %>% 
+  rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Tocantins") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "MA", skip = 7, n_max = 15, na = c("", "..."), 
+           col_types = mytypes,
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Maranhão") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% bind_rows(
+read_excel("data//ibge_gdp//participacao das ativ no VAB.xlsx", 
+           sheet = "MT", skip = 7, n_max = 15, na = c("", "..."), 
+           col_types = mytypes,
+           .name_repair = "universal") %>% rename(gva_cat = ...1) %>% 
+  filter(gva_cat != "Total") %>% 
+  mutate(gva_category = case_when(gva_cat == "Agropecuária" ~ "Agropecuária", 
+                                  gva_cat %in% industry ~"Indústria", 
+                                  gva_cat %in% services ~ "Serviços",
+                                  TRUE ~ NA_character_), 
+         uf = "Mato Grosso") %>% 
+  pivot_longer(!c(uf, gva_cat, gva_category), names_to = "ayear", names_prefix ="...", 
+               values_to = "gva_percent") %>% 
+  group_by(uf, ayear,  gva_category) %>% summarise(gva_percent = sum(gva_percent, na.rm = TRUE))
+) %>% 
+  filter(ayear %in% c("2000", "2001")) %>% 
+  mutate(ayear = as.numeric(ayear)) %>% 
+  select(uf, gva_category, ayear, gva_percent) %>% 
+  bind_rows(df_gva_state_2002_2019) -> df_gva_state_2000_2019
+
+#GDP etc summarise by state
+#GDP per capita and GVA by agriculture per capita 2002 - 2019 (from ibge_sidrar_tidy)
+df_gdppop_muni_02a19 <- read_excel("data//bla_municipality_gdppop_02a19.xlsx", 
+                                   na = c("", "NA"),
+                                   .name_repair = "universal")
+
+df_gdppop_muni_02a19 %>% 
+  group_by(uf, year) %>% 
+  summarise(tot_pop = sum(tot_pop, na.rm = TRUE), 
+            gdp_reais_1000 = sum(gdp_reais_1000, na.rm = TRUE), 
+            gva_agri = sum(gva_agri, na.rm = TRUE)) %>% 
+  mutate(gdp_percapita_reais = (gdp_reais_1000*1000)/tot_pop, 
+         gva_agri_percapita_reais = (gva_agri * 1000) / tot_pop) %>% 
+  mutate(gdp_percapita_usd = gdp_percapita_reais / 3.946, 
+         gva_agri_percapita_usd = gva_agri_percapita_reais / 3.946) -> df_gdpgva_state_2002_2019
+
+df_gdpgva_state_2002_2019 %>% 
+ggplot(aes(x=gva_agri_percapita_usd, y=gdp_percapita_usd)) + 
+  geom_point(aes(colour=factor(year))) + 
+  stat_smooth(aes(colour=factor(year)), method="lm", se=FALSE) + 
+  scale_y_continuous(labels = scales::unit_format(unit = "k", 
+                                                  scale = 1e-3, 
+                                                  accuracy = 1.0)) +
+  scale_color_viridis_d() +
+  labs(title= "(A)", 
+       x = "GVA agriculture per capita (US$)", 
+       y = "GDP per capita (US$)") + 
+  theme(text = element_text(size = 16), 
+        plot.title.position = "plot", 
+        legend.position="bottom", 
+        legend.title = element_blank()) + 
+  guides(col = guide_legend(nrow = 4)) -> fig_gdp_gva_state_2002_2019
+
+png(file = "figures//fig_gdp_gva_state_2002_2019.png", bg = "white", type = c("cairo"), 
+    width=3000, height=3500, res = 600)
+fig_gdp_gva_state_2002_2019
+dev.off()
+
+unique(dfmapbiomas_forest_transition$from_level_2)
+unique(dfmapbiomas_forest_transition$to_level_0)
+dfmapbiomas_forest_transition %>% 
+  filter(from_level_2 %in% c("Forest Formation", "Savanna Formation")) %>%
+  select(state, from_level_2, cols_transition) %>% 
+  pivot_longer(!c(state,from_level_2), names_to = "ayear", names_prefix ="..", 
+               values_to = "total_forestcover_loss") %>% 
+  group_by(state, ayear) %>% 
+  summarise(area_km2 = sum(total_forestcover_loss, na.rm=TRUE)/100) %>%
+  mutate(year = as.numeric(substr(ayear,6,11))) %>% 
+  rename(uf = state) %>%
+  filter(year %in% 2002:2019) %>%
+  left_join(df_gdpgva_state_2002_2019) %>% 
+  filter(tot_pop > 0) %>%
+  ggplot(aes(x=area_km2, y=gdp_percapita_usd)) + 
+  geom_point(aes(colour=factor(year))) + 
+  stat_smooth(aes(colour=factor(year)), method="lm", se=FALSE) + 
+  scale_y_continuous(labels = scales::unit_format(unit = "k", 
+                                                  scale = 1e-3, 
+                                                  accuracy = 1.0)) +
+  scale_color_viridis_d() +
+  labs(title= "(B)", 
+       x = bquote('cover transition'~(km^2)), 
+       y = "GDP per capita (US$)") + 
+  theme(text = element_text(size = 16), 
+        plot.title.position = "plot", 
+        legend.position="bottom", 
+        legend.title = element_blank()) + 
+  guides(col = guide_legend(nrow = 4)) -> fig_gdp_transition_state_2002_2019
+
+png(file = "figures//fig_gdp_transition_state_2002_2019.png", bg = "white", type = c("cairo"), 
+    width=3000, height=3500, res = 600)
+fig_gdp_transition_state_2002_2019
+dev.off()
+
+#PNAD 2016 - 2019 from ibge_sidrar_download
+df_pnad_state <- read_excel("data//edu_completo_25anos.xlsx", 
+                            sheet="edu_complete_25y_state",
+                            na = c("", "NA"),
+                            .name_repair = "universal") %>% 
+  filter(Unidade.da.Federação..Código. %in% all_of(as.numeric(sf_ninestate$CD_UF)))
+
+#census 1991, 2000, 2010 from Atlas do Brasil
+df_census <- read_excel("data//Atlas 2013_municipal, estadual e Brasil.xlsx", 
+                        sheet="UF 91-00-10",
+                        na = c("", "NA"),
+                        .name_repair = "universal") %>% 
+  filter(UF %in% all_of(as.numeric(sf_ninestate$CD_UF)))
+df_census %>% 
+  filter(ANO %in% c(2000, 2010)) %>% 
+  rename(uf = UFN, 
+         year = ANO, 
+         edu_uni_end = T_SUPER25M) %>% 
+  mutate(year = if_else(year==2000, 2002, 2010)) %>%
+  select(year, uf, edu_uni_end) %>%
+bind_rows(
+df_pnad_state %>% 
+  rename(uf = Unidade.da.Federação, 
+         year = Ano, 
+         edu_uni_end = Valor) %>%
+  filter(Sexo == "Total", Nível.de.instrução =="Superior completo", 
+         Unidade.de.Medida != "Mil pessoas") %>%
+  select(year, uf, edu_uni_end)
+) %>% left_join(df_gdpgva_state_2002_2019)%>%
+  ggplot(aes(x=edu_uni_end, y=gdp_percapita_usd)) + 
+  geom_point(aes(colour=factor(year))) + 
+  stat_smooth(aes(colour=factor(year)), method="lm", se=FALSE) + 
+  scale_y_continuous(labels = scales::unit_format(unit = "k", 
+                                                  scale = 1e-3, 
+                                                  accuracy = 1.0)) +
+  scale_color_viridis_d() +
+  labs(title= "(C)", 
+       x = "university qualification (%)", 
+       y = "GDP per capita (US$)") + 
+  theme(text = element_text(size = 16), 
+        plot.title.position = "plot", 
+        legend.position="bottom", 
+        legend.title = element_blank()) + 
+  guides(col = guide_legend(nrow = 4)) -> fig_gdp_edu_state_2002_2019
+
+png(file = "figures//fig_gdp_edu_state_2002_2019.png", bg = "white", type = c("cairo"), 
+    width=3000, height=3500, res = 600)
+fig_gdp_edu_state_2002_2019
+dev.off()
+  
+         

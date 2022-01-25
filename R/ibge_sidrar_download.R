@@ -216,4 +216,15 @@ df_edu_completo_25anos <- get_sidra(x = 7269,
                              period = years_2015a2019,
                              header = TRUE,
                              format = 4)
+unique(df_edu_completo_25anos[,2]) #[5] "Município"
+unique(df_edu_completo_25anos[,6]) #[5] 27 municipalities
 unique(df_edu_completo_25anos[,15]) #[5] "Superior completo"
+mun_codes <- as.character(unique(sf_ninestate_muni$CD_MUN))
+which(unique(df_edu_completo_25anos[,6]) %in% mun_codes) #9
+df_edu_completo_25anos_state <- get_sidra(x = 7269,
+                                    geo = "State", 
+                                    period = years_2015a2019,
+                                    header = TRUE,
+                                    format = 4)
+write.csv(df_edu_completo_25anos, "df_edu_completo_25anos.csv", row.names = FALSE)
+write.csv(df_edu_completo_25anos_state, "df_edu_completo_25anos_state.csv", row.names = FALSE)

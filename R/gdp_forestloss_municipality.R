@@ -451,11 +451,11 @@ legend_gva <- bi_legend(pal = "DkBlue",
 figbi_gdp <- cowplot::ggdraw() +
   cowplot::draw_plot(bimap_gdp, 0, 0, 1, 1) +
   cowplot::draw_plot(legend, 0.7, .71, 0.35, 0.25) + 
-  draw_text("(A)", x = 0.03, y = 0.95, size = 30)
+  draw_text("(D)", x = 0.03, y = 0.95, size = 30)
 figbi_gva <- cowplot::ggdraw() +
   cowplot::draw_plot(bimap_gva, 0, 0, 1, 1) +
   cowplot::draw_plot(legend_gva, 0.7, .71, 0.35, 0.25) + 
-  draw_text("(B)", x = 0.03, y = 0.95, size = 30)
+  draw_text("(E)", x = 0.03, y = 0.95, size = 30)
 #fig3b <- cowplot::ggdraw() +
 #  cowplot::draw_plot(bimap_intensity, 0, 0, 1, 1) +
 #  cowplot::draw_plot(legend, 0.7, .65, 0.35, 0.25)
