@@ -11,6 +11,7 @@ library(plyr)
 library(tidyverse)
 library(readxl)
 library(stringi)
+library(sf)
 bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
                      "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
 bla_state_siglas <- c("AC", "AP", "AM", "MA", 
@@ -23,6 +24,8 @@ bla_state_capitals <- data.frame(name_muni = c("Manaus", "Macapá", "Porto Velho
                                              2111300, 5103403, 1501402, 1721000)
 )
 
+ibge_muni <- "vector\\ninestate_muni.shp"
+sf_ninestate_muni <- st_read(ibge_muni) %>% filter(SIGLA_UF %in% bla_state_siglas)
 #2000 - 2020
 #https://www.gov.br/inep/pt-br/acesso-a-informacao/dados-abertos/indicadores-educacionais/taxas-de-rendimento
 #get file names
@@ -263,6 +266,37 @@ names_out <- c("aid", "flag_type", "ANO", "UF", "SIGLA" , "MUNIC", "muni_inep",
                "abandon_rate_percent" )
 write.csv(df_inep_schools_2000_2020[ ,names_out], 
           "inep_school_passrates.csv", row.names = FALSE)
+
+#summary by municipality
+data.frame(sf_ninestate_muni) %>% 
+  mutate(muni_upper = toupper(NM_MUN)) %>% 
+  mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII"), 
+         SIGLA = SIGLA_UF) %>% left_join(
+df_inep_schools_2000_2020 %>% 
+  filter(dep=="Estadual") %>%
+  filter(ANO =="2019") %>% 
+  group_by(SIGLA, muni_inep) %>% 
+  summarise(total_schools = length(unique(school_idcode)), 
+            pass_rate_per = median(pass_rate_percent, na.rm = TRUE),
+            pass_rate_sd = sd(pass_rate_percent, na.rm = TRUE)) 
+) -> df_muni_schools
+#
+df_muni_schools %>% 
+  select(!geometry) %>% 
+  arrange(SIGLA_UF, NM_MUN) %>% 
+  write.csv("muni_fixed_inep.csv", row.names = FALSE)
+
+#add forest loss
+data.frame(sf_ninestate_muni) %>% mutate(CD_MUN = as.numeric(CD_MUN)) %>% left_join(
+read_excel("data\\bla_municipality_gdp_forestloss.xlsx", 
+           .name_repair = "universal") %>% 
+  select(CD_MUN, SIGLA_UF, cagr_gdp_percapita, cagr_gva_agri_percapita, 
+         forest,	savanna,	tot_transition_km2, tot_transition_percent)
+
+) %>% 
+  select(!geometry) %>% 
+  arrange(SIGLA_UF, NM_MUN) %>% 
+  write.csv("muni_fixed_forestloss.csv", row.names = FALSE)
 
 ## ignore below all notes
 file.choose()

@@ -45,6 +45,53 @@ df_gdppop_muni_02a19 <- read_excel("data//bla_municipality_gdppop_02a19.xlsx",
                                    na = c("", "NA"),
                                    .name_repair = "universal")
 
+
+#
+file_health <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\AmazonConservation\\data\\Base suplemento MUNIC 2017_saneamento básico.xlsx"
+muni_health <- read_excel(file_health, sheet = "Dados gerais",
+                                   na = c("", "NA", "-"),
+                                   .name_repair = "universal")
+#805 in gdp, 808 in IBGE
+df_gdppop_muni_02a19 %>% filter(year == 2019) %>% 
+  mutate(CD_MUN = as.character(codmun7), 
+         flag_urban = if_else(is.na(Nome.Concentração.Urbana), "rural", "urban"), 
+         flag_capital = if_else(codmun7 %in% bla_state_capitals$codmun7, 
+                                "yes", "no")) %>% right_join(
+    data.frame(sf_ninestate_muni)) %>% 
+  select(uf_sigla, uf, name_muni, SIGLA_UF, CD_MUN, NM_MUN, AREA_KM2, Amazônia.Legal,
+         Semiárido, tot_pop, gdp_percapita_reais, 
+         flag_urban, flag_capital) %>% 
+  left_join(muni_health %>% mutate(CD_MUN = as.character(CodMun)) %>% 
+              select(CD_MUN, SMSBDG0601, SMSBDG06011)) %>% 
+  mutate(flag_health = if_else(SMSBDG0601=="Sim" & SMSBDG06011 =="Sim", 1,0), 
+         pop_dens = round((tot_pop / AREA_KM2),3)) %>% 
+  arrange(uf_sigla, name_muni) %>% 
+  write.csv("muni_fixed.csv", row.names = FALSE)
+
+
+#Mojuí dos Campos - was part of Santarem
+#Ipiranga do Norte- was part of Tapurah
+#Itanhangá - was part of Tapurah
+
+file_internet <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\AmazonConservation\\data\\Base_MUNIC_2019_20210817.xlsx"
+muni_internet <- read_excel(file_internet, sheet = "comm_ti",
+                          na = c("", "NA", "-"),
+                          .name_repair = "universal")
+df_gdppop_muni_02a19 %>% filter(year == 2019) %>% 
+  mutate(CD_MUN = as.character(codmun7), 
+         flag_urban = if_else(is.na(Nome.Concentração.Urbana), "rural", "urban"), 
+         flag_capital = if_else(codmun7 %in% bla_state_capitals$codmun7, 
+                                "yes", "no")) %>% right_join(
+                                  data.frame(sf_ninestate_muni)) %>% 
+  select(uf_sigla, uf, name_muni, SIGLA_UF, CD_MUN, NM_MUN, AREA_KM2, Amazônia.Legal,
+         Semiárido, tot_pop, gdp_percapita_reais, 
+         flag_urban, flag_capital) %>% 
+  left_join(muni_internet %>% mutate(CD_MUN = as.character(CodMun)) %>% 
+              select(CD_MUN, MTIC03, MTIC04)) %>% 
+  mutate(flag_int_complete_cover = if_else(MTIC03=="Em todas as unidades da prefeitura", 1,0)) %>% 
+  arrange(uf_sigla, name_muni) %>% 
+  write.csv("muni_fixed.csv", row.names = FALSE)
+
 # compound annual growth rates per municipality 2000 - 2010
 #First 3 years there are 805, last 808
 data.frame(sf_ninestate_muni) %>% select(-geometry) %>% 
