@@ -17,6 +17,71 @@ years_2010a2014 <- c("2010", "2011", "2012", "2013", "2014")
 years_2015a2019 <- c("2015", "2016", "2017", "2018", "2019")
 years_2020a2024 <- c("2020", "2021", "2022", "2023", "2024")
 
+#Cadastro Central de Empresas
+#Salary table 1685 replaced 454 . By year due to download limit.
+df_salary_2006 <- get_sidra(x = 1685, 
+                              geo = "City", 
+                              period = "2006", 
+                              header = TRUE) 
+df_salary_2007 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2007", 
+                            header = TRUE) 
+df_salary_2008 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2008", 
+                            header = TRUE) 
+df_salary_2009 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2009", 
+                            header = TRUE) 
+df_salary_2010 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2010", 
+                            header = TRUE) 
+df_salary_2011 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2011", 
+                            header = TRUE) 
+df_salary_2012 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2012", 
+                            header = TRUE)
+df_salary_2013 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2013", 
+                            header = TRUE)
+df_salary_2014 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2014", 
+                            header = TRUE)
+df_salary_2015 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2015", 
+                            header = TRUE)
+df_salary_2016 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2016", 
+                            header = TRUE)
+df_salary_2017 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2017", 
+                            header = TRUE)
+df_salary_2018 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2018", 
+                            header = TRUE)
+df_salary_2019 <- get_sidra(x = 1685, 
+                            geo = "City", 
+                            period = "2019", 
+                            header = TRUE)
+
+df_salary <- rbind(df_salary_2006, df_salary_2007, df_salary_2008, df_salary_2009,
+ df_salary_2010, df_salary_2011, df_salary_2012, df_salary_2013,
+df_salary_2014, df_salary_2015, df_salary_2016, df_salary_2017,
+df_salary_2018, df_salary_2019)
+write.csv(df_salary, "df_salary.csv", row.names = FALSE)
+
 #Population
 df_pop_2000a2004 <- get_sidra(x = 6579, 
                               geo = "City", 

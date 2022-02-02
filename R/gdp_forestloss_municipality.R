@@ -46,9 +46,50 @@ sf_ninestate %>% ggplot() + geom_sf(aes(fill = SIGLA_UF))
 df_gdppop_muni_02a19 <- read_excel("data//bla_municipality_gdppop_02a19.xlsx", 
                                    na = c("", "NA"),
                                 .name_repair = "universal")
- 			
+#Salary etc
+df_salary_muni_06a19 <- read_excel("data//muni_salary.xlsx", 
+                                   na = c("", "NA"),
+                                   .name_repair = "universal")
+
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>%
+  crossing(year = as.character(2002:2019)) %>% left_join(
+df_salary_muni_06a19 %>% 
+  mutate(CD_MUN = as.character(Município..Código.), 
+         year = as.character(Ano)) %>%
+  filter(CD_MUN %in% sf_ninestate_muni$CD_MUN) %>% 
+  mutate(income_metric = case_when(Variável == "Número de unidades locais" ~ "count_local_units", 
+                                   Variável == "Número de empresas e outras organizações atuantes" ~"count_active_companies", 
+                                   Variável == "Pessoal ocupado total" ~ "employed_total", 
+                                   Variável == "Pessoal ocupado assalariado" ~"employed_informal", 
+                                   Variável == "Pessoal assalariado médio"~"mean_employed_informal", 
+                                   Variável == "Salários e outras remunerações" ~"total_salaries", 
+                                   Variável == "Salário médio mensal" ~ "min_salary_mean", 
+                                   Variável == "Salário médio mensal em reais" ~"salary_mean_reais",
+                                   TRUE ~ NA_character_ ) 
+  ) %>% select(CD_MUN, year, income_metric, Valor) %>% 
+  pivot_wider(id_cols = c(CD_MUN, year), 
+              names_from = income_metric, values_from = Valor)
+  ) %>% arrange(uf_sigla, NM_MUN) %>% 
+  write.csv("muni_fixed_income_long.csv", row.names = FALSE)
 
 #Interpolate 2007 (to do......)
+df_gdppop_muni_02a19 %>% 
+  select(year, uf_sigla, uf, codmun7, name_muni, 
+         tot_pop, gdp_percapita_reais, gva_agri_percapita_reais) %>%
+  arrange(uf_sigla, uf, name_muni, year) %>% 
+  mutate(lag_pop = lag(tot_pop), 
+         lead_pop = lead(tot_pop), 
+         lag_gva = lag(gva_agri_percapita_reais), 
+         lead_gva = lead(gva_agri_percapita_reais)) %>% 
+  mutate(pop_new = if_else(is.na(tot_pop), round(((lag_pop + lead_pop)/2),0), 
+                           tot_pop), 
+         gva_new = if_else(is.na(gva_agri_percapita_reais), 
+                           round(((lag_gva + lead_gva)/2),2), 
+                           gva_agri_percapita_reais)) -> df_gdppop_muni_02a19_nona
 
 #Economic growth over time for each municipality
 df_gdppop_muni_02a19 %>% 
@@ -281,7 +322,37 @@ dfmapbiomas_forest_transition_muni %>%
   mutate(year = as.numeric(substr(ayear,6,11)), 
          cover_class = if_else(from_level_2 == "Savanna Formation", 
                                "savanna", "forest")) -> dfmapbiomas_forest_transition_muni_long
+#Export
+#Add state names and year (18 * 808 = 14544)
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>% 
+  crossing(year = 2002:2019) %>% left_join(
+#
+df_gdppop_muni_02a19_nona %>% 
+  select(year, uf_sigla, uf, codmun7, name_muni, 
+         pop_new, gdp_percapita_reais, gva_new), 
+by = c("uf_sigla" = "uf_sigla", "uf" = "uf", 
+       "year" = "year", "NM_MUN" = "name_muni") 
+) %>% left_join(#
+dfmapbiomas_forest_transition_muni_long %>% 
+  filter(year %in% c(2001:2019)) %>% 
+  group_by(state, city, year, cover_class) %>% 
+  summarise(area_km2 = sum(area_km2, na.rm = TRUE)) %>%
+  pivot_wider(id_cols = c(state, city, year), 
+              names_from = cover_class, values_from = area_km2) %>% 
+  mutate(tot_transition_km2 = (replace_na(forest,0) + replace_na(savanna,0))), 
+by = c("uf" = "state", "year" = "year", "NM_MUN" = "city") 
+) %>% select(!codmun7) %>% 
+  mutate(tot_transition_km2 = 
+           if_else(tot_transition_km2==0, NA_real_, tot_transition_km2)) %>%
+  mutate(tot_transition_km2_percent = (tot_transition_km2 / AREA_KM2)*100) %>%
+  arrange(uf_sigla, NM_MUN) %>% 
+  write.csv("muni_fixed_year.csv", row.names = FALSE)
 
+#
 dfmapbiomas_forest_transition_muni_long %>% 
   filter(year %in% c(2002:2019))  %>% 
   group_by(state, city, cover_class) %>% 

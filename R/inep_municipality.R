@@ -12,6 +12,7 @@ library(tidyverse)
 library(readxl)
 library(stringi)
 library(sf)
+library(mgcv)
 bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
                      "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
 bla_state_siglas <- c("AC", "AP", "AM", "MA", 
@@ -298,7 +299,288 @@ read_excel("data\\bla_municipality_gdp_forestloss.xlsx",
   arrange(SIGLA_UF, NM_MUN) %>% 
   write.csv("muni_fixed_forestloss.csv", row.names = FALSE)
 
-## ignore below all notes
+
+#Annual summaries
+df_inep_school %>% 
+  filter(dep=="Estadual", ANO > 1998, ANO < 2020) %>%
+  group_by(SIGLA, muni_inep, ANO) %>% 
+  summarise(total_schools = length(unique(school_idcode)), 
+            pass_rate_per = median(pass_rate_percent, na.rm = TRUE),
+            pass_rate_sd = sd(pass_rate_percent, na.rm = TRUE)) %>% 
+  ungroup() -> df_inep_school_1999_2019
+
+#Interpolate 2003 - 2006
+df_inep_school_1999_2019 %>% data.frame() -> df_inep_school_1999_2019
+df_inep_school_1999_2019 %>% 
+  group_by(SIGLA, muni_inep) %>% summarise(acount = n()) %>% 
+  arrange(SIGLA, acount)
+
+gam_interpolate <- function(x) {
+count_years <- length(unique(x$ANO))
+pred_years <- c(1999:2019)
+selschools <- which(x$total_schools >=3)
+flag_sd <- length(selschools)
+dfgam <- data.frame(ANO = x$ANO, total_schools = x$total_schools, 
+                    pass_rate_per = x$pass_rate_per)
+if(count_years > 9){
+m1 <- gam(pass_rate_per ~s(ANO), method = "REML", data = dfgam)
+pass_pred <- predict(m1, data.frame(ANO = pred_years), type = "response")
+}else{pass_pred <- NA}
+
+if(count_years > 9){
+m2 <- gam(total_schools ~s(ANO), family = "poisson", method = "REML", data = dfgam)
+school_pred <- predict(m2, data.frame(ANO = pred_years), type = "response")
+}else{school_pred <- NA}
+
+if(flag_sd >9){
+m3 <- gam(pass_rate_sd ~s(ANO), method = "REML", data = x)
+sd_pred <- predict(m3, data.frame(ANO = pred_years), type = "response")
+}else{sd_pred <- NA}
+
+dfout <- data.frame(year = pred_years, school_pred = round(school_pred,0), 
+                    pass_predict = pass_pred, pass_sd_predict = sd_pred
+                    )
+}
+
+gam_predictions <- plyr::ddply(df_inep_school_1999_2019, 
+                               .(SIGLA, muni_inep), .fun = gam_interpolate)
+#CAPES
+capes <- read_excel("data\\capes_postgraduation.xlsx", 
+           .name_repair = "universal")
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>%
+  crossing(year = 2002:2019) %>% 
+  mutate(muni_upper = toupper(NM_MUN)) %>% 
+  mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII")) %>% 
+  select(!muni_upper) %>% left_join(
+capes %>% 
+  filter(Ano %in% c(2002:2019), UF %in% all_of(bla_state_siglas)) %>%
+  mutate(muni_upper = toupper(Município)) %>% 
+  mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII"), 
+         flag_strong = if_else(Conceito %in% c("4", "5", "6", "7"), 1, 0)) %>% 
+  group_by(Ano, UF, muni_inep) %>% 
+  summarise(count_institutes = length(unique(Sigla)), 
+            count_course = length(unique(Código.Programa)), 
+            count_strong_course = sum(flag_strong)) %>% 
+  mutate(percent_strong_course = (count_strong_course/count_course) *100), 
+by = c("uf_sigla" = "UF", "year" = "Ano", "muni_inep" = "muni_inep")
+) %>% arrange(uf_sigla, NM_MUN) %>% 
+  write.csv("muni_fixed_capes_long.csv", row.names = FALSE)
+
+  
+
+#Join for export
+captial_dist <- read.csv("muni_fixed_dist.csv")
+#Export
+#Add state names, urban flag and year (18 * 808 = 14544)
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% left_join(captial_dist, by = c("uf_sigla" = "SIGLA_UF", "NM_MUN" = "NM_MUN")) %>% 
+  left_join(df_gdppop_muni_02a19 %>% 
+              group_by(uf_sigla, name_muni, Nome.Concentração.Urbana) %>% 
+              summarise(count_muni = length(unique(codmun7))), 
+                        by = c("uf_sigla" = "uf_sigla", "NM_MUN" = "name_muni")) %>%
+  mutate(flag_urban = if_else(is.na(Nome.Concentração.Urbana), "rural", "urban")) %>%
+  select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2, dist_statecapital_km, flag_urban) %>% 
+  crossing(year = 2002:2019) %>% 
+  mutate(muni_upper = toupper(NM_MUN)) %>% 
+  mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII")) %>% 
+  select(!muni_upper) %>%
+  left_join(df_inep_school_1999_2019 %>% 
+              filter(ANO %in% c(2002:2019)), 
+            by = c("uf_sigla" = "SIGLA", "year" = "ANO", 
+                                        "muni_inep" ="muni_inep")) %>% 
+  left_join(gam_predictions %>% 
+               filter(year %in% c(2002:2019)), 
+             by = c("uf_sigla" = "SIGLA", "year" = "year", 
+                    "muni_inep" ="muni_inep")
+               
+    ) %>% 
+  mutate(total_schools_new = coalesce(total_schools, school_pred), 
+         pass_rate_per_new = coalesce(pass_rate_per, pass_predict), 
+         pass_rate_sd_new = coalesce(pass_rate_sd, pass_sd_predict)) %>% 
+  select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2, dist_statecapital_km, 
+         flag_urban, year, total_schools_new, 
+         pass_rate_per_new, pass_rate_sd_new)  %>%
+  arrange(uf_sigla, NM_MUN) %>% 
+  write.csv("muni_fixed_school_long.csv", row.names = FALSE)
+#
+
+#  INEP superior
+# first for each .zip get data files
+dfnames_sup <- data.frame(mypath = "E:\\edu_inep\\superior",
+                      mynames = list.files(path = "E:\\edu_inep\\superior", 
+                                           pattern = "\\.zip$",
+                                           full.names = FALSE) 
+) %>% 
+  mutate(full_path = paste(mypath, mynames, sep="\\")) %>% 
+  mutate(aid = full_path)
+
+inep_get_names_sup <- function(x){
+  zip_files <- unzip(x$full_path, list=TRUE) 
+  zip_files_out <- data.frame(full_path = x$full_path, zip_files)
+}
+plyr::ddply(dfnames_sup, .(aid), 
+            .fun = inep_get_names_sup) %>% 
+  mutate(flag_name_course = str_detect(Name, 
+                                          regex("curso|forme_presencial|graduacao_presencial", ignore_case = TRUE)),
+         flag_name_2009_2019 = str_detect(Name, regex("curso", ignore_case = TRUE)), 
+         flag_name_csv = str_detect(Name, regex(".csv", ignore_case = TRUE))) %>% 
+  filter(flag_name_2009_2019, flag_name_csv) -> df_inep_datafiles_sup
+
+#Unzip data files (works for 2009 - 2019)
+myunzip <- function(x) {
+  unzip(zipfile = x$full_path, 
+        files= x$Name, 
+        exdir="E:\\edu_inep\\superior\\data", 
+        junkpaths = TRUE, overwrite=TRUE)
+}  
+plyr::d_ply(df_inep_datafiles_sup[13, ], .(aid), .fun = myunzip)
+
+dfdata_names_sup <- data.frame(mypath = "E:\\edu_inep\\superior\\data",
+                          mynames = list.files(path = "E:\\edu_inep\\superior\\data",
+                                               full.names = FALSE) 
+) %>% 
+  mutate(full_path = paste(mypath, mynames, sep="\\")) %>% 
+  mutate(aid = full_path, 
+         flag_name_2009_2019 = str_detect(mynames, regex("curso", ignore_case = TRUE))) %>% 
+         separate(mynames ,into = c("b","c"), 
+                  sep = "2",remove = FALSE, extra = "merge") %>% 
+           mutate(ayear = as.numeric(paste("2", substr(c,0,3), sep="")))
+  
+inep_get_superior <- function(x){
+  if(x$flag_name_2009_2019){
+# import data
+datain <- read_delim(x$full_path, delim = "|", 
+              col_types = cols(.default = "c"), 
+              escape_double = FALSE, 
+              trim_ws = TRUE) %>% filter(TP_MODALIDADE_ENSINO=="1", 
+                                         CO_MUNICIPIO %in% sf_ninestate_muni$CD_MUN)
+
+data.frame(sf_ninestate_muni) %>% select(-geometry) %>% left_join(
+data.frame(ANO = datain$NU_ANO_CENSO, 
+           CO_MUNICIPIO = datain$CO_MUNICIPIO,
+           CO_IES = datain$CO_IES, 
+           TP_CAT = datain$TP_CATEGORIA_ADMINISTRATIVA,
+           CO_CURSO = datain$CO_CURSO 
+), by = c("CD_MUN" = "CO_MUNICIPIO")
+) %>% filter (!is.na(ANO)) -> superior_out 
+
+  }
+  
+  if(x$ayear %in% c(2000:2006)){
+    # import data
+    datain <- read_delim(x$full_path, delim = "|", 
+                        col_types = cols(.default = "c"), 
+                        escape_double = FALSE, 
+                       trim_ws = TRUE)
+#join with IBGE codes
+    data.frame(sf_ninestate_muni) %>% select(-geometry) %>% 
+      mutate(muni_inep = stri_trans_general(toupper(NM_MUN), "Latin-ASCII")) %>% left_join(
+      data.frame(ANO = datain$ANO,
+                               CO_IES = datain$MASCARA,
+                               muni_inep = datain$MUNICIPIO,
+                               SIGLA_UF_CURSO = datain$SIGLA_UF_CURSO,
+                               TP_CAT = datain$COD_DEP,
+                               CO_CURSO = datain$CURSO 
+    ) %>% 
+      mutate(muni_inep = stri_trans_general(toupper(muni_inep), "Latin-ASCII")), 
+    by = c("SIGLA_UF" = "SIGLA_UF_CURSO","muni_inep"="muni_inep") 
+      ) %>% filter (!is.na(ANO)) %>% select(!muni_inep) -> superior_out
+  }
+  
+  if(x$ayear %in% c(2007)){
+    # import data
+    datain <- read_delim(x$full_path, delim = "|", 
+                         col_types = cols(.default = "c"), 
+                         escape_double = FALSE, 
+                         trim_ws = TRUE)
+    #join with IBGE codes
+    data.frame(sf_ninestate_muni) %>% select(-geometry) %>% 
+      mutate(muni_inep = stri_trans_general(toupper(NM_MUN), "Latin-ASCII")) %>% left_join(
+        data.frame(ANO = datain$ANO,
+                   CO_IES = datain$MASCARA,
+                   muni_inep = datain$NOME_MUNICIPIO,
+                   SIGLA_UF = datain$SIGLA_UF,
+                   TP_CAT = datain$CO_DEP,
+                   CO_CURSO = datain$CURSO 
+        ) %>% 
+          mutate(muni_inep = stri_trans_general(toupper(muni_inep), "Latin-ASCII")), 
+        by = c("SIGLA_UF" = "SIGLA_UF","muni_inep"="muni_inep") 
+      ) %>% filter (!is.na(ANO)) %>% select(!muni_inep) -> superior_out
+  }
+  
+  if(x$ayear %in% c(2008)){
+    # import data
+    datain <- read_excel(x$full_path, 
+                         sheet = 1, col_types = "text",
+                         .name_repair = "universal")
+    #join with IBGE codes
+    data.frame(sf_ninestate_muni) %>% select(-geometry) %>% 
+      mutate(muni_inep = stri_trans_general(toupper(NM_MUN), "Latin-ASCII")) %>% left_join(
+        data.frame(ANO = datain$ANO,
+                   CO_IES = datain$IES,
+                   muni_inep = datain$NOME_MUNICIPIO,
+                   SIGLA_UF_CURSO = datain$SIGLA_UF,
+                   TP_CAT = datain$CO_DEP,
+                   CO_CURSO = datain$CURSO 
+        ) %>% 
+          mutate(muni_inep = stri_trans_general(toupper(muni_inep), "Latin-ASCII")), 
+        by = c("SIGLA_UF" = "SIGLA_UF_CURSO","muni_inep"="muni_inep") 
+      ) %>% filter (!is.na(ANO)) %>% select(!muni_inep) -> superior_out
+  }
+superior_out
+}
+
+#Load data
+df_inep_superior_2000_2020 <- plyr::ddply(dfdata_names_sup, .(aid), 
+                                         .fun = inep_get_superior)
+df_inep_superior_2000_2020 %>% 
+  group_by(ANO) %>% summarise(total_count = n(), 
+                              state_count = length(unique(SIGLA_UF)),
+                              muni_count = length(unique(CD_MUN)), 
+                              ies_count = length(unique(CO_IES)), 
+                              course_count = length(unique(CO_CURSO)))
+
+df_muni <- read_excel("data//bla_municipalities.xlsx", 
+                      na = c("", "NA"),
+                      sheet = "municipality_fixed_ref",
+                      .name_repair = "universal")
+df_muni_year <- read_excel("data//bla_municipalities.xlsx", 
+                           na = c("", "NA"),
+                           sheet = "municipality_annual",
+                           .name_repair = "universal")
+#join and export
+df_muni %>% 
+  select(state_ref, muni_code, muni_name, muni_area_km2, 
+         forest_2019_km2, savanna_2019_km2,
+         tot_forest_cover_2019_km2, tot_forest_cover_2019_percent) %>% 
+  right_join(df_muni_year %>% select(year, muni_code, tot_pop)) %>% 
+  mutate(muni_code = as.character(muni_code), 
+         year = as.character(year)) %>% 
+  left_join(#
+df_inep_superior_2000_2020 %>% 
+group_by(ANO, SIGLA_UF, CD_MUN) %>% 
+  summarise(count_institutes = length(unique(CO_IES)), 
+            count_course = length(unique(CO_CURSO))), 
+by = c("year" = "ANO", "state_ref" = "SIGLA_UF", muni_code ="CD_MUN") 
+) %>% 
+  mutate(superior_per1000 = (replace_na(count_institutes, 0)/tot_pop)*1000, 
+         superior_course_per1000 = (replace_na(count_course, 0)/tot_pop)*1000) %>% 
+  arrange(state_ref, muni_name) %>% 
+  write.csv("muni_fixed_superior_long.csv", row.names = FALSE)
+
+df_muni_year %>%
+  mutate(pg_per1000 = count_pg_course/(tot_pop/1000)) %>% 
+  select(state_ref, muni_name, year, pg_per1000) %>% 
+  arrange(state_ref, muni_name) %>% 
+  write.csv("inep_pg1000.csv", row.names = FALSE)
+###################### ignore below all notes
 file.choose()
 read_excel("E:\\edu_inep\\rendimento\\data\\tx_rend_escolas_2014.xlsx", 
            .name_repair = "universal", n_max=3) %>% names()

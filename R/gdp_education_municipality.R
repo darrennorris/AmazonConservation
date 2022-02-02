@@ -92,6 +92,36 @@ df_gdppop_muni_02a19 %>% filter(year == 2019) %>%
   arrange(uf_sigla, name_muni) %>% 
   write.csv("muni_fixed.csv", row.names = FALSE)
 
+#Forest coverage in 2019
+filecover <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\AmazonConservation\\data\\Mapbiomas-Brazil-land-cover.xlsx"
+dfmapbiomas_cover <- read_excel(filecover, sheet = "municipality",
+                            na = c("", "NA", "-"),
+                            .name_repair = "universal")
+data.frame(sf_ninestate_muni) %>% 
+  left_join(data.frame(sf_ninestate), by = c("SIGLA_UF" = "SIGLA_UF")) %>%
+  mutate(muni_upper = toupper(NM_MUN)) %>% 
+  mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII")) %>% 
+  select(SIGLA_UF, NM_UF, NM_MUN, AREA_KM2, muni_inep) %>% left_join(
+dfmapbiomas_cover %>% 
+  filter(level_0 == "Natural", level_1 ==	"1. Forest") %>% 
+  filter(level_2 %in% c("Forest Formation", "Savanna Formation")) %>% 
+           mutate(muni_upper = toupper(city)) %>% 
+  mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII")), 
+  by = c("NM_UF"="state", "muni_inep" = "muni_inep")) %>%  
+  select(NM_UF, NM_MUN, AREA_KM2, level_2, ...2019) %>% 
+  mutate(cover_area_km2 = ...2019/100) %>%
+  filter(!is.na(NM_MUN)) %>% 
+  pivot_wider(id_cols = c(NM_UF, NM_MUN, AREA_KM2), 
+              names_from = level_2, values_from = cover_area_km2) %>% 
+  mutate(tot_forest_cover_2019_km2 =
+           replace_na(`Forest Formation`,0) + replace_na(`Savanna Formation`,0)) %>%
+  mutate(tot_forest_cover_2019_km2 = 
+           if_else(tot_forest_cover_2019_km2==0, NA_real_, tot_forest_cover_2019_km2)) %>%
+  mutate(tot_forest_cover_2019_percent = (tot_forest_cover_2019_km2 / AREA_KM2)*100) %>% 
+ # filter(NM_MUN == "Macapá")   %>% 
+  arrange(NM_UF, NM_MUN) %>% 
+  write.csv("muni_fixed_mapbiomas.csv", row.names = FALSE)
+
 # compound annual growth rates per municipality 2000 - 2010
 #First 3 years there are 805, last 808
 data.frame(sf_ninestate_muni) %>% select(-geometry) %>% 
