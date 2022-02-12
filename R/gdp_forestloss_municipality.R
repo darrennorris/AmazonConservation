@@ -290,7 +290,8 @@ dfmapbiomas_transition_muni <- read_excel("data//Mapbiomas-Brazil-transition.xls
                                           .name_repair = "universal") %>% 
   filter(state %in% bla_state_names)
 
-cols_transition <- c(paste("..",2001:2019,".", 2002:2020, sep=""))
+#Include earlier for lag values
+cols_transition <- c(paste("..",1991:2019,".", 1992:2020, sep=""))
 dfmapbiomas_transition_muni %>% 
   filter(from_level_2 %in% c("Forest Formation", "Savanna Formation"), 
          to_level_0 =="Anthropic") %>% 
@@ -322,6 +323,7 @@ dfmapbiomas_forest_transition_muni %>%
   mutate(year = as.numeric(substr(ayear,6,11)), 
          cover_class = if_else(from_level_2 == "Savanna Formation", 
                                "savanna", "forest")) -> dfmapbiomas_forest_transition_muni_long
+
 #Export
 #Add state names and year (18 * 808 = 14544)
 df_gdppop_muni_02a19 %>% 
@@ -352,6 +354,50 @@ by = c("uf" = "state", "year" = "year", "NM_MUN" = "city")
   arrange(uf_sigla, NM_MUN) %>% 
   write.csv("muni_fixed_year.csv", row.names = FALSE)
 
+#export with lag values
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>% 
+  crossing(year = 2002:2019) %>% left_join(
+dfmapbiomas_forest_transition_muni_long %>% 
+  group_by(state, city, year, cover_class) %>% 
+  summarise(area_km2 = sum(area_km2, na.rm = TRUE)) %>%
+  pivot_wider(id_cols = c(state, city, year), 
+              names_from = cover_class, values_from = area_km2) %>% 
+  mutate(tot_transition_km2 = (replace_na(forest,0) + replace_na(savanna,0))) %>% 
+  group_by(state, city) %>%
+arrange(state, city) %>% 
+  mutate(lag01_lossarea_km2 = lag(tot_transition_km2, order_by = year), 
+         lag02_lossarea_km2 = lag(tot_transition_km2, n=2, order_by = year), 
+         lag03_lossarea_km2 = lag(tot_transition_km2, n=3, order_by = year), 
+         lag04_lossarea_km2 = lag(tot_transition_km2, n=4, order_by = year), 
+         lag05_lossarea_km2 = lag(tot_transition_km2, n=5, order_by = year), 
+         lag06_lossarea_km2 = lag(tot_transition_km2, n=6, order_by = year), 
+         lag07_lossarea_km2 = lag(tot_transition_km2, n=7, order_by = year), 
+         lag08_lossarea_km2 = lag(tot_transition_km2, n=8, order_by = year), 
+         lag09_lossarea_km2 = lag(tot_transition_km2, n=9, order_by = year), 
+         lag10_lossarea_km2 = lag(tot_transition_km2, n=10, order_by = year)) %>% 
+  #select(state, city, year, lag10_lossarea_km2) %>% 
+  filter(year >=2002), 
+by = c("uf" = "state", "year" = "year", "NM_MUN" = "city") 
+) %>% 
+  mutate(lag01_lossarea_per = round((lag01_lossarea_km2 / AREA_KM2)*100,3), 
+         lag02_lossarea_per = round((lag02_lossarea_km2 / AREA_KM2)*100,3), 
+         lag03_lossarea_per = round((lag03_lossarea_km2 / AREA_KM2)*100,3), 
+         lag04_lossarea_per = round((lag04_lossarea_km2 / AREA_KM2)*100,3), 
+         lag05_lossarea_per = round((lag05_lossarea_km2 / AREA_KM2)*100,3), 
+         lag06_lossarea_per = round((lag06_lossarea_km2 / AREA_KM2)*100,3), 
+         lag07_lossarea_per = round((lag07_lossarea_km2 / AREA_KM2)*100,3), 
+         lag08_lossarea_per = round((lag08_lossarea_km2 / AREA_KM2)*100,3), 
+         lag09_lossarea_per = round((lag09_lossarea_km2 / AREA_KM2)*100,3), 
+         lag10_lossarea_per = round((lag10_lossarea_km2 / AREA_KM2)*100,3)) %>% 
+  arrange(uf_sigla, NM_MUN) %>% 
+  write.csv("muni_fixed_lagloss.csv", row.names = FALSE)
+
+#filter(year %in% c(2002:2019)) %>% 
+  
 #
 dfmapbiomas_forest_transition_muni_long %>% 
   filter(year %in% c(2002:2019))  %>% 
