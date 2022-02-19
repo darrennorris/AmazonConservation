@@ -503,7 +503,7 @@ model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf +
                        s(gva_agri_percapita_reais) +
                        s(school_per1000) + 
                        s(pg_per1000) + 
-                       s(dist_statecapital_km, flag_urbanf, 
+                       s(dist_statecapital_km, state_namef, 
                          k=5, bs="fs", m=2) + 
                        s(year, state_namef,  k=5, bs="fs", m=2), 
                      data = dfgam, 
@@ -513,17 +513,17 @@ model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf +
 summary(model_01_ar2$lme)
 
 #AR3 
-model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year +
-                       s(year, state_namef,  k=5, bs="fs", m=2) + 
-                       s(gva_agri_percapita_reais, state_namef, 
-                         k=5, bs="fs", m=2) +
+model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf + 
+                       s(pop_dens_km2) +
+                       s(tot_loss5y_percent) +
+                       s(gva_agri_percapita_reais) +
                        s(school_per1000) + 
                        s(pg_per1000) + 
                        s(dist_statecapital_km, state_namef, 
-                         k=5, bs="fs", m=2) +
-                       s(tot_loss5y_percent), 
+                         k=5, bs="fs", m=2) + 
+                       s(year, state_namef,  k=5, bs="fs", m=2), 
                      data = dfgam, 
-                     method="REML", 
+                     method="REML",  
                      correlation = corARMA(form = ~ 1|year, p = 3), 
                      control = ctrl)
 summary(model_01_ar3$lme)
