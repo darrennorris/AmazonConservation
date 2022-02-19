@@ -478,7 +478,8 @@ gam.check(model_00)
 summary(model_00)
 
 #
-ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B")
+ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
+             maxIter = 99, msMaxIter = 99)
 model_01 <- gamm(log(gdp_percapita_reais) ~ year +
                    s(year, state_namef,  k=5, bs="fs", m=2) + 
                    s(gva_agri_percapita_reais, state_namef, 
@@ -492,15 +493,21 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ year +
                  method="REML")
 summary(model_01$lme)
 
-#AR2 2 hours or so
-model_01_ar2 <- gamm(gdp_percapita_reais ~ year + s(school_per1000) + 
-                       s(pg_per1000) + s(tot_loss5y_percent) + 
-                       s(gva_agri_percapita_reais) +
-                       s(dist_statecapital_km), 
+#AR2  hours or so ...
+model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year +
+                       s(year, state_namef,  k=5, bs="fs", m=2) + 
+                       s(gva_agri_percapita_reais, state_namef, 
+                         k=5, bs="fs", m=2) +
+                       s(school_per1000) + 
+                       s(pg_per1000) + 
+                       s(dist_statecapital_km, state_namef, 
+                         k=5, bs="fs", m=2) +
+                       s(tot_loss5y_percent), 
                      data = dfgam, 
+                     method="REML", 
                      correlation = corARMA(form = ~ 1|year, p = 2), 
                      control = ctrl)
-
+summary(model_01_ar2$lme)
 #AR4 2 hours or so
 model_01_ar4 <- gamm(gdp_percapita_reais ~ year + s(school_per1000) + 
                    s(pg_per1000) + s(tot_loss5y_percent) + 
@@ -514,7 +521,8 @@ summary(model_01_ar4$lme)
 #residuals
 anova(model_01$lme, model_01_ar4$lme)
 res_gam <- resid(model_00, type = "deviance")
-res_gamm <- resid(model_01$lme, type = "normalized")
+res_gamm <- resid(model_01$lme, type = "normalized") 
+res_gamm_ar2 <- resid(model_01_ar2$lme, type = "normalized")
 res_gamm_ar3 <- resid(model_01_ar4$lme, type = "normalized")
 
 dfgam$m01_res_ar3 <- res_ar3
