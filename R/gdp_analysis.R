@@ -526,7 +526,7 @@ model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf +
                      method="REML",  
                      correlation = corARMA(form = ~ 1|year, p = 3), 
                      control = ctrl)
-summary(model_01_ar3$lme)
+summary(model_01_ar3$gam)
 
 #AR4 2 hours or so
 model_01_ar4 <- gamm(gdp_percapita_reais ~ year + s(school_per1000) + 
@@ -547,14 +547,15 @@ res_gamm_ar3 <- resid(model_01_ar3$lme, type = "normalized")
 
 dfgam$m01_res_gam <- res_gam
 dfgam$m01_res_ar3 <- res_ar3
-dfgam$m01_res_gamm <- res_gamm
+dfgam$res_gamm_ar2 <- res_gamm_ar2
+dfgam$res_gamm_ar3 <- res_gamm_ar3
 
 library(timetk)
 dfgam %>%
   group_by(state_name, muni_name) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = m01_res_gam, 
+    .value = res_gamm_ar3, 
     .lags = 11
   ) -> tidy_acf
 
@@ -582,7 +583,7 @@ tidy_acf %>%
     plot.title = element_text(hjust = 0.5)
   ) + labs(
     title = "AutoCorrelation (ACF)",
-    subtitle = "GAM residuals", 
+    subtitle = "GAMM AR(3) residuals", 
     xlab = "lag (year)"
   )
 
