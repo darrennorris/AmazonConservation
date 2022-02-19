@@ -508,6 +508,23 @@ model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year +
                      correlation = corARMA(form = ~ 1|year, p = 2), 
                      control = ctrl)
 summary(model_01_ar2$lme)
+
+#AR3 
+model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year +
+                       s(year, state_namef,  k=5, bs="fs", m=2) + 
+                       s(gva_agri_percapita_reais, state_namef, 
+                         k=5, bs="fs", m=2) +
+                       s(school_per1000) + 
+                       s(pg_per1000) + 
+                       s(dist_statecapital_km, state_namef, 
+                         k=5, bs="fs", m=2) +
+                       s(tot_loss5y_percent), 
+                     data = dfgam, 
+                     method="REML", 
+                     correlation = corARMA(form = ~ 1|year, p = 3), 
+                     control = ctrl)
+summary(model_01_ar$lme)
+
 #AR4 2 hours or so
 model_01_ar4 <- gamm(gdp_percapita_reais ~ year + s(school_per1000) + 
                    s(pg_per1000) + s(tot_loss5y_percent) + 
