@@ -534,10 +534,14 @@ model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf +
 summary(model_01_ar3$gam)
 
 #AR4 2 hours or so
-model_01_ar4 <- gamm(gdp_percapita_reais ~ year + s(school_per1000) + 
-                   s(pg_per1000) + s(tot_loss5y_percent) + 
-                     s(gva_agri_percapita_reais) +
-                   s(dist_statecapital_km), 
+model_01_ar4 <- gamm(log(gdp_percapita_reais) ~ 
+                       s(year, by = state_namef) + 
+                       s(pop_dens_km2) +
+                       s(tot_loss5y_percent) +
+                       s(gva_agri_percapita_reais) +
+                       s(school_per1000) + 
+                       s(pg_per1000) + 
+                       s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
                    correlation = corARMA(form = ~ 1|year, p = 4), 
                  control = ctrl)
@@ -546,21 +550,19 @@ summary(model_01_ar4$lme)
 #residuals
 anova(model_01$lme, model_01_ar4$lme)
 res_gam <- resid(model_00, type = "deviance")
-res_gamm <- resid(model_01$lme, type = "normalized") 
-res_gamm_ar2 <- resid(model_01_ar2$lme, type = "normalized")
-res_gamm_ar3 <- resid(model_01_ar3$lme, type = "normalized")
+res_gamm <- resid(model_01$lme, type = "normalized")
+res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
 
 dfgam$m01_res_gam <- res_gam
-dfgam$m01_res_ar3 <- res_ar3
-dfgam$res_gamm_ar2 <- res_gamm_ar2
-dfgam$res_gamm_ar3 <- res_gamm_ar3
+dfgam$m01_res_gamm <- res_gamm
+dfgam$res_gamm_ar4 <- res_gamm_ar4
 
 library(timetk)
 dfgam %>%
   group_by(state_name, muni_name) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = res_gamm_ar3, 
+    .value = m01_res_gamm, 
     .lags = 11
   ) -> tidy_acf
 
@@ -588,7 +590,7 @@ tidy_acf %>%
     plot.title = element_text(hjust = 0.5)
   ) + labs(
     title = "AutoCorrelation (ACF)",
-    subtitle = "GAMM AR(3) residuals", 
+    subtitle = "GAMM residuals", 
     xlab = "lag (year)"
   )
 
