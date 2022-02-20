@@ -465,36 +465,41 @@ cor.test(dfgam$gdp_percapita_reais,
 
 #Model
 #Need to use log as there are extreme outlier gdp_percapita values 
-model_00 <- gam(log(gdp_percapita_reais) ~ year + flag_urbanf + 
+model_00 <- gam(log(gdp_percapita_reais) ~ 
+                  s(year, by = state_namef) + 
                   s(pop_dens_km2) +
                   s(tot_loss5y_percent) +
                   s(gva_agri_percapita_reais) +
                   s(school_per1000) + 
                    s(pg_per1000) + 
-                  s(dist_statecapital_km, flag_urbanf, 
-                    k=5, bs="fs", m=2) + 
-                  s(year, state_namef,  k=5, bs="fs", m=2), 
+                  s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
                 method="REML")
 gam.check(model_00)
 summary(model_00)
-plot(model_00)
+plot(model_00, scale = 0)
 
 #
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99)
-model_01 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf + 
+model_01 <- gamm(log(gdp_percapita_reais) ~ 
+                   s(year, by = state_namef) + 
                    s(pop_dens_km2) +
                    s(tot_loss5y_percent) +
                    s(gva_agri_percapita_reais) +
                    s(school_per1000) + 
                    s(pg_per1000) + 
-                   s(dist_statecapital_km, flag_urbanf, 
-                     k=5, bs="fs", m=2) + 
-                   s(year, state_namef,  k=5, bs="fs", m=2), 
+                   s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
                  method="REML")
 summary(model_01$lme)
+library(forecast)
+arma_res <- auto.arima(resid(model_01$lme, type = "normalized"),
+                       stationary = TRUE, seasonal = FALSE)
+
+arma_res$coef
+#        ar1         ar2         ar3         ar4         ma1 
+#0.088944119 0.668233076 0.007782517 0.032667507 0.763584433
 
 #AR2  hours or so ...
 model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf + 
