@@ -533,7 +533,7 @@ model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf +
                      control = ctrl)
 summary(model_01_ar3$gam)
 
-#AR4 2 hours or so
+#AR4 2 hours or so 11:31
 model_01_ar4 <- gamm(log(gdp_percapita_reais) ~ 
                        s(year, by = state_namef) + 
                        s(pop_dens_km2) +
@@ -546,6 +546,8 @@ model_01_ar4 <- gamm(log(gdp_percapita_reais) ~
                    correlation = corARMA(form = ~ 1|year, p = 4), 
                  control = ctrl)
 summary(model_01_ar4$lme)
+saveRDS(model_01_ar4, "model_01_ar4.rds")
+model_01_ar4.rds <- readRDS("model_01_ar4.rds")
 
 #residuals
 anova(model_01$lme, model_01_ar4$lme)
