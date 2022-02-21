@@ -4,7 +4,6 @@ library(scales)
 library(mgcv)
 library(stringi)
 
-
 #google: r cran purtest example tutorial interpretation
 #stationarity https://kevinkotze.github.io/ts-6-tut/
 df_muni <- read_excel("data//bla_municipalities.xlsx", 
@@ -15,7 +14,32 @@ df_muni_year <- read_excel("data//bla_municipalities.xlsx",
                       na = c("", "NA"),
                       sheet = "municipality_annual",
                       .name_repair = "universal")
+#include presidents to sgregate timeseries
+#presidents https://en.wikipedia.org/wiki/List_of_presidents_of_Brazil
+pres_names <- c("Collor do Mello", "Franco", "Cardoso", "Lula", 
+                "Rousseff", "Temer", "Bolsonaro")
+pres_start <- c("15/03/1990", "02/10/1992", "01/01/1995", "01/03/2003", 
+                "01/01/2011", "12/05/2016", "01/01/2019")
+pres_end <- c("01/10/1992", "31/12/1994", 
+              "31/12/2002", "31/12/2010", "11/05/2016", 
+              "31/12/2018", "31/12/2021")
+pres_party <- c("PRN", "PMDB", "PSDB", "PT", "PT", "MDB", "PSL/PL")
+pres_party_direction <- c(NA, "center", "right-wing", "left_wing", 
+                          "left-wing", "center", "right-wing")
+df_presidents <- data.frame(pres_names = pres_names,
+                            pres_party = pres_party, 
+                            pres_party_direction = pres_party_direction,
+                            pres_start = pres_start, 
+                            pres_end = pres_end)
 
+df_year_presidents <- data.frame(year = c(2002, 2003:2010, 2011:2016, 
+                                          2017:2018, 2019), 
+           president = c("c_cardoso", rep("a_lula",8), rep("b_rousseff", 6), 
+                         rep("c_temer", 2), "c_bolsonaro"), 
+           pres_group = c("other", rep("a_lula",8), rep("b_rousseff", 6), 
+                          rep("other",3))
+)
+df_muni_year %>% left_join(df_year_presidents) -> df_muni_year
 #Basic reference vectors
 bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
                      "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
@@ -428,7 +452,8 @@ var_response <- c("gdp_percapita_reais")
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecapital_km", 
          "flag_urban")
 var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", "gva_agri_percapita_reais",
-                  "school_per1000", "superior_course_per1000", "pg_per1000")
+                  "school_per1000", "superior_course_per1000", "pg_per1000", 
+                  "president", "pres_group")
 var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per", 
               "lag04_lossarea_per", "lag05_lossarea_per", "lag06_lossarea_per", 
               "lag07_lossarea_per", "lag08_lossarea_per", "lag09_lossarea_per", 
@@ -450,7 +475,8 @@ which(is.na(dfgam)[,3]) #
 dfgam$muni_namef <- as.factor(dfgam$muni_name) 
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
-
+dfgam$pres_groupf <- as.factor(dfgam$pres_group)
+levels(dfgam$pres_groupf)#left wing Lula is the reference level
 #Subset to develop models
 unique(dfgam$state_name)
 dfgam[which(dfgam$gdp_percapita_reais == max(dfgam$gdp_percapita_reais)), 
@@ -475,7 +501,13 @@ cor.test(dfgam$gdp_percapita_reais,
 
 #Model
 #Need to use log as there are (5 or so) extreme outlier gdp_percapita values 
+test<- EnvStats::boxcox(dfgam$gdp_percapita_reais)
+hist(test$data)
+testlog <- log(dfgam$gdp_percapita_reais)
+hist(testlog)
+#
 model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
+                  pres_groupf +
                   s(pop_dens_km2) +
                   s(tot_loss5y_percent) +
                   s(gva_agri_percapita_reais) +
@@ -492,32 +524,37 @@ plot(model_00, scale = 0)
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99)
 model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
+                   pres_groupf +
                    s(pop_dens_km2) +
                    s(tot_loss5y_percent) +
                    s(gva_agri_percapita_reais) +
                    s(school_per1000) + 
                    s(pg_per1000) + 
                    s(dist_statecapital_km, by = state_namef), 
-                 data = dfgam_test, 
+                 data = dfgam, 
                  method="REML")
 summary(model_01$lme)
 library(forecast)
 arma_res <- auto.arima(resid(model_01$lme, type = "normalized"),
                        stationary = TRUE, seasonal = FALSE)
 
-arma_res$coef
+#arma_res$coef #without president
 #       ar1        ar2        ar3        ma1        ma2 
 #0.2820864 -0.3996548  0.8024361  0.5823226  0.9371343 
+#with president
+arma_res$coef
+#        ar1         ma1 
+#0.88137497 -0.03356724 
 
 #AR ...
-model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf + 
+model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
+                       pres_groupf +
                        s(pop_dens_km2) +
                        s(tot_loss5y_percent) +
                        s(gva_agri_percapita_reais) +
                        s(school_per1000) + 
                        s(pg_per1000) + 
                        s(dist_statecapital_km, by = state_namef), 
-                         data = dfgam, 
                          method="REML",
                    correlation = corARMA(form = ~ 1|year, p = 3, q = 2), 
                  control = ctrl)
