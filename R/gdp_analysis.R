@@ -451,6 +451,16 @@ dfgam$muni_namef <- as.factor(dfgam$muni_name)
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
 
+#Subset to develop models
+unique(dfgam$state_name)
+dfgam[which(dfgam$gdp_percapita_reais == max(dfgam$gdp_percapita_reais)), 
+            'state_name']
+dfgam[which(dfgam$gdp_percapita_reais == min(dfgam$gdp_percapita_reais)), 
+      'state_name']
+dfgam %>% 
+  filter(state_name %in% c("Amapá", "Pará", 
+                           "Maranhão")) -> dfgam_test
+
 table(dfgam$flag_urban)
 #library(corrgram) -18 (lag 1,2,3)
 corrgram(dfgam[, c(var_response, "tot_loss_percent", var_lags)],
@@ -464,9 +474,8 @@ cor.test(dfgam$gdp_percapita_reais,
          dfgam$pg_per1000) #0.078
 
 #Model
-#Need to use log as there are extreme outlier gdp_percapita values 
-model_00 <- gam(log(gdp_percapita_reais) ~ 
-                  s(year, by = state_namef) + 
+#Need to use log as there are (5 or so) extreme outlier gdp_percapita values 
+model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                   s(pop_dens_km2) +
                   s(tot_loss5y_percent) +
                   s(gva_agri_percapita_reais) +
@@ -475,22 +484,21 @@ model_00 <- gam(log(gdp_percapita_reais) ~
                   s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
                 method="REML")
-gam.check(model_00)
+gam.check(model_00) #test has same distributions
 summary(model_00)
 plot(model_00, scale = 0)
 
 #
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99)
-model_01 <- gamm(log(gdp_percapita_reais) ~ 
-                   s(year, by = state_namef) + 
+model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                    s(pop_dens_km2) +
                    s(tot_loss5y_percent) +
                    s(gva_agri_percapita_reais) +
                    s(school_per1000) + 
                    s(pg_per1000) + 
                    s(dist_statecapital_km, by = state_namef), 
-                 data = dfgam, 
+                 data = dfgam_test, 
                  method="REML")
 summary(model_01$lme)
 library(forecast)
@@ -498,66 +506,36 @@ arma_res <- auto.arima(resid(model_01$lme, type = "normalized"),
                        stationary = TRUE, seasonal = FALSE)
 
 arma_res$coef
-#        ar1         ar2         ar3         ar4         ma1 
-#0.088944119 0.668233076 0.007782517 0.032667507 0.763584433
+#       ar1        ar2        ar3        ma1        ma2 
+#0.2820864 -0.3996548  0.8024361  0.5823226  0.9371343 
 
-#AR2  hours or so ...
-model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf + 
-                       s(pop_dens_km2) +
-                       s(tot_loss5y_percent) +
-                       s(gva_agri_percapita_reais) +
-                       s(school_per1000) + 
-                       s(pg_per1000) + 
-                       s(dist_statecapital_km, state_namef, 
-                         k=5, bs="fs", m=2) + 
-                       s(year, state_namef,  k=5, bs="fs", m=2), 
-                     data = dfgam, 
-                     method="REML", 
-                     correlation = corARMA(form = ~ 1|year, p = 2), 
-                     control = ctrl)
-summary(model_01_ar2$lme)
-
-#AR3 
-model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year + flag_urbanf + 
-                       s(pop_dens_km2) +
-                       s(tot_loss5y_percent) +
-                       s(gva_agri_percapita_reais) +
-                       s(school_per1000) + 
-                       s(pg_per1000) + 
-                       s(dist_statecapital_km, state_namef, 
-                         k=5, bs="fs", m=2) + 
-                       s(year, state_namef,  k=5, bs="fs", m=2), 
-                     data = dfgam, 
-                     method="REML",  
-                     correlation = corARMA(form = ~ 1|year, p = 3), 
-                     control = ctrl)
-summary(model_01_ar3$gam)
-
-#AR4 2 hours or so 11:31
-model_01_ar4 <- gamm(log(gdp_percapita_reais) ~ 
-                       s(year, by = state_namef) + 
+#AR ...
+model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf + 
                        s(pop_dens_km2) +
                        s(tot_loss5y_percent) +
                        s(gva_agri_percapita_reais) +
                        s(school_per1000) + 
                        s(pg_per1000) + 
                        s(dist_statecapital_km, by = state_namef), 
-                 data = dfgam, 
-                   correlation = corARMA(form = ~ 1|year, p = 4), 
+                         data = dfgam, 
+                         method="REML",
+                   correlation = corARMA(form = ~ 1|year, p = 3, q = 2), 
                  control = ctrl)
-summary(model_01_ar4$lme)
 saveRDS(model_01_ar4, "model_01_ar4.rds")
-model_01_ar4.rds <- readRDS("model_01_ar4.rds")
+model_01_ar4 <- readRDS("model_01_ar4.rds")
+summary(model_01_ar4$lme) 
+summary(model_01_ar4$gam)
 
 #residuals
 anova(model_01$lme, model_01_ar4$lme)
 res_gam <- resid(model_00, type = "deviance")
 res_gamm <- resid(model_01$lme, type = "normalized")
-res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
+#res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
+res_gamm_ar4 <- resid(model_01_ar4$gam, type = "deviance")
 
 dfgam$m01_res_gam <- res_gam
 dfgam$m01_res_gamm <- res_gamm
-dfgam$res_gamm_ar4 <- res_gamm_ar4
+
 
 library(timetk)
 dfgam %>%
@@ -593,7 +571,7 @@ tidy_acf %>%
   ) + labs(
     title = "AutoCorrelation (ACF)",
     subtitle = "GAMM residuals", 
-    xlab = "lag (year)"
+    x = "lag (year)"
   )
 
 #https://www.kaggle.com/janiobachmann/time-series-i-an-introductory-start/script
