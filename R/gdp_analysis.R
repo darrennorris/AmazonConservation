@@ -521,10 +521,10 @@ model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                          method="REML",
                    correlation = corARMA(form = ~ 1|year, p = 3, q = 2), 
                  control = ctrl)
-saveRDS(model_01_ar4, "model_01_ar4.rds")
-model_01_ar4 <- readRDS("model_01_ar4.rds")
-summary(model_01_ar4$lme) 
-summary(model_01_ar4$gam)
+saveRDS(model_01_ar3, "model_01_ar3.rds")
+model_01_ar3 <- readRDS("model_01_ar3.rds")
+summary(model_01_ar3$lme) 
+summary(model_01_ar3$gam)
 
 #residuals
 anova(model_01$lme, model_01_ar4$lme)
