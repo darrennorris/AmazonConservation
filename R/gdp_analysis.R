@@ -546,7 +546,7 @@ arma_res$coef
 #        ar1         ma1 
 #0.88137497 -0.03356724 
 
-#AR ...
+#AR ...9
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        pres_groupf +
                        s(pop_dens_km2) +
@@ -555,13 +555,14 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        s(school_per1000) + 
                        s(pg_per1000) + 
                        s(dist_statecapital_km, by = state_namef), 
-                         method="REML",
-                   correlation = corARMA(form = ~ 1|year, p = 3, q = 2), 
+                         method="REML", 
+                     data = dfgam,
+                   correlation = corARMA(form = ~ 1|year, p = 1), 
                  control = ctrl)
-saveRDS(model_01_ar3, "model_01_ar3.rds")
-model_01_ar3 <- readRDS("model_01_ar3.rds")
-summary(model_01_ar3$lme) 
-summary(model_01_ar3$gam)
+saveRDS(model_01_ar1, "model_01_ar1.rds")
+model_01_ar1 <- readRDS("model_01_ar1.rds")
+summary(model_01_ar1$lme) 
+summary(model_01_ar1$gam)
 
 #residuals
 anova(model_01$lme, model_01_ar4$lme)
