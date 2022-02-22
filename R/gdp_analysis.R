@@ -594,7 +594,7 @@ dfgam %>%
   group_by(state_name, muni_name) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = m01_res_gamm, 
+    .value = m01_res_gamm_ar1, 
     .lags = 11
   ) -> tidy_acf
 
@@ -622,7 +622,7 @@ tidy_acf %>%
     plot.title = element_text(hjust = 0.5)
   ) + labs(
     title = "AutoCorrelation (ACF)",
-    subtitle = "GAMM residuals", 
+    subtitle = "GAMM AR(1) residuals", 
     x = "lag (year)"
   )
 
