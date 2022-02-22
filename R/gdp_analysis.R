@@ -564,16 +564,30 @@ model_01_ar1 <- readRDS("model_01_ar1.rds")
 summary(model_01_ar1$lme) 
 summary(model_01_ar1$gam)
 
+model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
+                       pres_groupf +
+                       s(pop_dens_km2) +
+                       s(tot_loss5y_percent) +
+                       s(gva_agri_percapita_reais) +
+                       s(school_per1000) + 
+                       s(pg_per1000) + 
+                       s(dist_statecapital_km, by = state_namef), 
+                     method="REML", 
+                     data = dfgam,
+                     correlation = corARMA(form = ~ 1|year, p = 2), 
+                     control = ctrl)
+saveRDS(model_01_ar2, "model_01_ar2.rds")
+
 #residuals
 anova(model_01$lme, model_01_ar4$lme)
 res_gam <- resid(model_00, type = "deviance")
 res_gamm <- resid(model_01$lme, type = "normalized")
 #res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
-res_gamm_ar4 <- resid(model_01_ar4$gam, type = "deviance")
+res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
 
 dfgam$m01_res_gam <- res_gam
 dfgam$m01_res_gamm <- res_gamm
-
+dfgam$m01_res_gamm_ar1 <- res_gamm_ar1
 
 library(timetk)
 dfgam %>%
