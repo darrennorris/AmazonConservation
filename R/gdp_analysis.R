@@ -577,6 +577,7 @@ model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                      correlation = corARMA(form = ~ 1|year, p = 2), 
                      control = ctrl)
 saveRDS(model_01_ar2, "model_01_ar2.rds")
+model_01_ar2 <- readRDS("model_01_ar2.rds")
 summary(model_01_ar2$lme) 
 summary(model_01_ar2$gam)
 
@@ -603,25 +604,28 @@ res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
 res_gamm_ar2 <- resid(model_01_ar2$lme, type = "normalized")
 res_gamm_ar3 <- resid(model_01_ar3$lme, type = "normalized")
 
+#Add residuals to model data.frame
+
 dfgam$m01_res_gam <- res_gam
 dfgam$m01_res_gamm <- res_gamm
 dfgam$m01_res_gamm_ar1 <- res_gamm_ar1
-dfgam$m01_res_gamm_ar2 <- res_gamm_ar2
+df_ar2 <- model_01_ar2$lme$data[,1:11]
+df_ar2$m01_res_gamm_ar2 <- res_gamm_ar2
 dfgam$m01_res_gamm_ar3 <- res_gamm_ar3
 
 library(timetk)
-dfgam %>%
-  group_by(state_name, muni_name) %>%
+df_ar2 %>%
+  group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = m01_res_gamm_ar1, 
+    .value = m01_res_gamm_ar2, 
     .lags = 11
   ) -> tidy_acf
 
 #export as .png  250 * 1000
 tidy_acf %>% 
-  ggplot(aes(x = lag, y = ACF, color = state_name, 
-             group = state_name)) +
+  ggplot(aes(x = lag, y = ACF, color = state_namef, 
+             group = state_namef)) +
   # Add horizontal line a y=0
   geom_hline(yintercept = 0) +
   # Plot autocorrelations
@@ -633,7 +637,7 @@ tidy_acf %>%
   geom_line(aes(y = .white_noise_lower), color = "black", 
             linetype = 2) +
   # Add facets
-  facet_wrap(~ state_name, ncol = 1) +
+  facet_wrap(~ state_namef, ncol = 1) +
   # Aesthetics
   expand_limits(y = c(-1, 1)) +
   theme(
@@ -642,7 +646,7 @@ tidy_acf %>%
     plot.title = element_text(hjust = 0.5)
   ) + labs(
     title = "AutoCorrelation (ACF)",
-    subtitle = "GAMM AR(1) residuals", 
+    subtitle = "GAMM AR(2) residuals", 
     x = "lag (year)"
   )
 
