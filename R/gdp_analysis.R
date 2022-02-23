@@ -479,6 +479,7 @@ df_muni_year %>%
            lag04_lossarea_per + lag05_lossarea_per, 
          adate = as.Date(paste(year,"-01", "-01", sep="")), 
          format = c("%Y-%m-%d")) -> dfgam
+saveRDS(dfgam, "dfgam.rds")
 which(is.na(dfgam)[,3]) #
 dfgam$muni_namef <- as.factor(dfgam$muni_name) 
 dfgam$state_namef <- as.factor(dfgam$state_name)
