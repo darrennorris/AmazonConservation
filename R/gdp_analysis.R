@@ -40,6 +40,12 @@ df_year_presidents <- data.frame(year = c(2002, 2003:2010, 2011:2016,
                           rep("other",3))
 )
 df_muni_year %>% left_join(df_year_presidents) -> df_muni_year
+df_muni_year %>% 
+  arrange(state_name, muni_name) %>% 
+  group_by(state_name, muni_name) %>% 
+  mutate(lag01_gva_agri = lag(gva_agri_percapita_reais, order_by = year), 
+         lag01_gdp = lag(gva_agri_percapita_reais, order_by = year)) -> df_muni_year
+
 #Basic reference vectors
 bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
                      "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
@@ -447,7 +453,7 @@ df_muni %>%
 #https://petolau.github.io/Analyzing-double-seasonal-time-series-with-GAM-in-R/
 #https://fromthebottomoftheheap.net/2014/05/09/modelling-seasonal-data-with-gam/
 #https://fromthebottomoftheheap.net/2021/02/02/random-effects-in-gams/
-
+## gva and gdp lags do not improve model
 var_response <- c("gdp_percapita_reais")
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecapital_km", 
          "flag_urban")
@@ -461,7 +467,9 @@ var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per",
 df_muni_year %>% 
   filter(!is.na(tot_loss_percent), !is.na(school_per1000), 
          !is.na(superior_course_per1000), !is.na(pg_per1000), 
-         dist_statecapital_km >0) %>% 
+         dist_statecapital_km >0, 
+         !muni_name %in% c("Vitória do Xingu", 
+                            "Canaã dos Carajás", "Campos de Júlio")) %>% 
   select(all_of(var_response), all_of(var_timeconstant), all_of(var_timevary), 
          all_of(var_lags)) %>% 
   mutate(tot_loss3y_percent = lag01_lossarea_per + 
@@ -505,9 +513,10 @@ test<- EnvStats::boxcox(dfgam$gdp_percapita_reais)
 hist(test$data)
 testlog <- log(dfgam$gdp_percapita_reais)
 hist(testlog)
-#
+#lags (gdp and gva) do not improve model
+memory.limit(30000)#needed to run gam.check
 model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
-                  pres_groupf +
+                  pres_groupf + 
                   s(pop_dens_km2) +
                   s(tot_loss5y_percent) +
                   s(gva_agri_percapita_reais) +
@@ -515,11 +524,12 @@ model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                    s(pg_per1000) + 
                   s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
+                family = "tw",
                 method="REML")
-gam.check(model_00) #test has same distributions
+gam.check(model_00) 
 summary(model_00)
 plot(model_00, scale = 0)
-
+model_00$control$
 #
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99)
@@ -532,7 +542,8 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                    s(pg_per1000) + 
                    s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
-                 method="REML")
+                 method="REML", 
+                 gam.control = (keepData = TRUE))
 summary(model_01$lme)
 library(forecast)
 arma_res <- auto.arima(resid(model_01$lme, type = "normalized"),
@@ -594,31 +605,36 @@ model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                      correlation = corARMA(form = ~ 1|year, p = 3), 
                      control = ctrl)
 saveRDS(model_01_ar3, "model_01_ar3.rds")
+model_01_ar3 <- readRDS("model_01_ar3.rds")
 
-#residuals
-anova(model_01$lme, model_01_ar4$lme)
+#Compare models
+anova(model_01$lme, model_01_ar2$lme, model_01_ar3$lme)
 res_gam <- resid(model_00, type = "deviance")
 res_gamm <- resid(model_01$lme, type = "normalized")
 #res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
 res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
-res_gamm_ar2 <- resid(model_01_ar2$lme, type = "normalized")
-res_gamm_ar3 <- resid(model_01_ar3$lme, type = "normalized")
 
+
+#residuals
 #Add residuals to model data.frame
-
 dfgam$m01_res_gam <- res_gam
 dfgam$m01_res_gamm <- res_gamm
 dfgam$m01_res_gamm_ar1 <- res_gamm_ar1
+#AR2
+res_gamm_ar2 <- resid(model_01_ar2$lme, type = "normalized")
 df_ar2 <- model_01_ar2$lme$data[,1:11]
 df_ar2$m01_res_gamm_ar2 <- res_gamm_ar2
-dfgam$m01_res_gamm_ar3 <- res_gamm_ar3
+#AR3
+res_gamm_ar3 <- resid(model_01_ar3$lme, type = "normalized")
+df_ar3 <- model_01_ar3$lme$data[,1:11]
+df_ar3$m01_res_gamm_ar3 <- res_gamm_ar3
 
 library(timetk)
-df_ar2 %>%
+df_ar3 %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = m01_res_gamm_ar2, 
+    .value = m01_res_gamm_ar3, 
     .lags = 11
   ) -> tidy_acf
 
@@ -646,7 +662,7 @@ tidy_acf %>%
     plot.title = element_text(hjust = 0.5)
   ) + labs(
     title = "AutoCorrelation (ACF)",
-    subtitle = "GAMM AR(2) residuals", 
+    subtitle = "GAMM AR(3) residuals", 
     x = "lag (year)"
   )
 
@@ -667,14 +683,16 @@ df_ar2 %>%
   tk_acf_diagnostics(
     .date_var = year,
     .value = `log(gdp_percapita_reais)`,
-    .ccf_vars = tot_loss5y_percent, 
+    .ccf_vars = c(gva_agri_percapita_reais, tot_loss5y_percent, 
+                  school_per1000), 
     .lags = 11
-  ) -> tidy_ccf_gdp_forest
+  ) -> tidy_ccf_gdp
   
 #export as .png  250 * 1000
-tidy_ccf_gdp_forest %>% 
+tidy_ccf_gdp %>% 
   filter(lag <11) %>%
-  ggplot(aes(x = lag, y = CCF_tot_loss5y_percent, color = state_namef, 
+  ggplot(aes(x = lag, y = CCF_school_per1000, 
+             color = state_namef, 
              group = state_namef)) +
   # Add horizontal line a y=0
   geom_hline(yintercept = 0) +
@@ -691,8 +709,10 @@ tidy_ccf_gdp_forest %>%
     axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title = element_text(hjust = 0.5)
   ) + labs(
-    title = "Cross Correlation",
-    x = "lag (year)"
+    title = "Cross Correlation", 
+    subtitle = "GDP and schools",
+    x = "lag (year)", 
+    y = "correlation coefficient"
   )
 
 #https://www.kaggle.com/janiobachmann/time-series-i-an-introductory-start/script
