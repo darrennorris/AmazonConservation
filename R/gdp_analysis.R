@@ -650,6 +650,51 @@ tidy_acf %>%
     x = "lag (year)"
   )
 
+#How many lags of GVA / five year forest loss to use??
+#Cross-correlations
+names(df_ar2)
+df_ar2 %>%
+  group_by(state_namef, dist_statecapital_km) %>% 
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = `log(gdp_percapita_reais)`,
+    .ccf_vars = gva_agri_percapita_reais, 
+    .lags = 11
+  ) -> tidy_ccf_gdp_agri
+
+df_ar2 %>%
+  group_by(state_namef, dist_statecapital_km) %>% 
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = `log(gdp_percapita_reais)`,
+    .ccf_vars = tot_loss5y_percent, 
+    .lags = 11
+  ) -> tidy_ccf_gdp_forest
+  
+#export as .png  250 * 1000
+tidy_ccf_gdp_forest %>% 
+  filter(lag <11) %>%
+  ggplot(aes(x = lag, y = CCF_tot_loss5y_percent, color = state_namef, 
+             group = state_namef)) +
+  # Add horizontal line a y=0
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = 0.7, linetype=2) +
+  # Plot autocorrelations
+  geom_point(size = 2) +
+  geom_segment(aes(xend = lag, yend = 0), size = 1) +
+  # Add facets
+  facet_wrap(~ state_namef, ncol = 1) +
+  # Aesthetics
+  expand_limits(y = c(-1, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) + labs(
+    title = "Cross Correlation",
+    x = "lag (year)"
+  )
+
 #https://www.kaggle.com/janiobachmann/time-series-i-an-introductory-start/script
 dfgam %>%
   group_by(state_name, muni_name) %>% 
