@@ -668,7 +668,6 @@ dfgam$m01_res_gamm <- res_gamm
 dfgam$m01_res_gamm_ar1 <- res_gamm_ar1
 
 #AR test
-model_01ar1_test
 res_gamm_art <- resid(model_01ar1_test$lme, type = "normalized")
 hist(res_gamm_art)
 df_art <- model_01ar1_test$lme$data[,1:11]
