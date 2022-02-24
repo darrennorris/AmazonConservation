@@ -465,12 +465,12 @@ var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per",
               "lag04_lossarea_per", "lag05_lossarea_per", "lag06_lossarea_per", 
               "lag07_lossarea_per", "lag08_lossarea_per", "lag09_lossarea_per", 
               "lag10_lossarea_per")
+high_gdp_muni <- c("Vitória do Xingu", 
+                   "Canaã dos Carajás", "Campos de Júlio")
 df_muni_year %>% 
   filter(!is.na(tot_loss_percent), !is.na(school_per1000), 
          !is.na(superior_course_per1000), !is.na(pg_per1000), 
-         dist_statecapital_km >0, 
-         !muni_name %in% c("Vitória do Xingu", 
-                            "Canaã dos Carajás", "Campos de Júlio")) %>% 
+         dist_statecapital_km >0) %>% 
   select(all_of(var_response), all_of(var_timeconstant), all_of(var_timevary), 
          all_of(var_lags)) %>% 
   mutate(tot_loss3y_percent = lag01_lossarea_per + 
@@ -524,6 +524,17 @@ memory.limit(30000)#needed to run gam.check
 myctrl <- list(keepData = TRUE)
 model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                   pres_groupf + 
+                  s(year, by = state_namef, k=5, m=1, bs="tp") +
+                  s(gva_agri_percapita_reais) +
+                  s(dist_statecapital_km, by = state_namef) + 
+                  s(state_namef, bs="re"), 
+                data = dfgam_test, 
+                family = "tw",
+                method="REML", 
+                control = myctrl)
+
+model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
+                  pres_groupf + 
                   s(yearf, bs="re") +
                   s(pop_dens_km2) +
                   s(tot_loss5y_percent) +
@@ -534,7 +545,7 @@ model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                  data = dfgam, 
                 family = "tw",
                 method="REML", 
-                gam.control = myctrl)
+                control = myctrl)
 gam.check(model_00) 
 summary(model_00)
 plot(model_00, scale = 0)
