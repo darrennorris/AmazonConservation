@@ -479,13 +479,16 @@ df_muni_year %>%
            lag04_lossarea_per + lag05_lossarea_per, 
          adate = as.Date(paste(year,"-01", "-01", sep="")), 
          format = c("%Y-%m-%d")) -> dfgam
-saveRDS(dfgam, "dfgam.rds")
+
 which(is.na(dfgam)[,3]) #
 dfgam$muni_namef <- as.factor(dfgam$muni_name) 
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
 dfgam$pres_groupf <- as.factor(dfgam$pres_group)
 levels(dfgam$pres_groupf)#left wing Lula is the reference level
+saveRDS(dfgam, "dfgam.rds")
+dfgam <- readRDS("dfgam.rds")
+
 #Subset to develop models
 unique(dfgam$state_name)
 dfgam[which(dfgam$gdp_percapita_reais == max(dfgam$gdp_percapita_reais)), 
@@ -526,11 +529,12 @@ model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                   s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
                 family = "tw",
-                method="REML")
+                method="REML", 
+                gam.control = (keepData = TRUE))
 gam.check(model_00) 
 summary(model_00)
 plot(model_00, scale = 0)
-model_00$control$
+saveRDS(model_00, "model_00.rds")
 #
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99)
@@ -543,8 +547,8 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                    s(pg_per1000) + 
                    s(dist_statecapital_km, by = state_namef), 
                  data = dfgam, 
-                 method="REML", 
-                 gam.control = (keepData = TRUE))
+                 method="REML" 
+                 )
 summary(model_01$lme)
 library(forecast)
 arma_res <- auto.arima(resid(model_01$lme, type = "normalized"),
@@ -611,6 +615,7 @@ model_01_ar3 <- readRDS("model_01_ar3.rds")
 #Compare models
 anova(model_01$lme, model_01_ar2$lme, model_01_ar3$lme)
 res_gam <- resid(model_00, type = "deviance")
+hist(res_gam)
 res_gamm <- resid(model_01$lme, type = "normalized")
 #res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
 res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
