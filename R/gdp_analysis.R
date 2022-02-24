@@ -535,6 +535,8 @@ gam.check(model_00)
 summary(model_00)
 plot(model_00, scale = 0)
 saveRDS(model_00, "model_00.rds")
+model_00 <- readRDS("model_00.rds")
+
 #
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99)
@@ -614,8 +616,7 @@ model_01_ar3 <- readRDS("model_01_ar3.rds")
 
 #Compare models
 anova(model_01$lme, model_01_ar2$lme, model_01_ar3$lme)
-res_gam <- resid(model_00, type = "deviance")
-hist(res_gam)
+
 res_gamm <- resid(model_01$lme, type = "normalized")
 #res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
 res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
@@ -623,6 +624,10 @@ res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
 
 #residuals
 #Add residuals to model data.frame
+res_gam <- resid(model_00, type = "deviance")
+hist(res_gam)
+df_00 <- model_00$data[,1:11]
+model_00$control$keepData
 dfgam$m01_res_gam <- res_gam
 dfgam$m01_res_gamm <- res_gamm
 dfgam$m01_res_gamm_ar1 <- res_gamm_ar1
