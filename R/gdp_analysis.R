@@ -559,7 +559,7 @@ model_00 <- readRDS("model_00.rds")
 
 #
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
-             maxIter = 99, msMaxIter = 99)
+             maxIter = 99, msMaxIter = 99, keepData = TRUE)
 model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                    pres_groupf +
                    s(pop_dens_km2) +
@@ -583,6 +583,21 @@ arma_res <- auto.arima(resid(model_01$lme, type = "normalized"),
 arma_res$coef
 #        ar1         ma1 
 #0.88137497 -0.03356724 
+
+# AR test
+model_01ar1_test <-gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
+      pres_groupf + 
+      s(year, by = state_namef, k=5, m=1, bs="tp") +
+      s(gva_agri_percapita_reais) +
+      s(dist_statecapital_km, by = state_namef) + 
+      s(state_namef, bs="re"), 
+    correlation = corARMA(form = ~ 1|year, p = 1), 
+    data = dfgam_test, 
+    method="REML", 
+    control = ctrl)
+saveRDS(model_01ar1_test, "model_01ar1_test.rds")
+model_01ar1_test <- readRDS("model_01ar1_test.rds")
+
 
 #AR ...9
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
