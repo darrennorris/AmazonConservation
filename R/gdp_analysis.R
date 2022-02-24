@@ -591,7 +591,7 @@ model_01ar1_test <-gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
       s(gva_agri_percapita_reais) +
       s(dist_statecapital_km, by = state_namef) + 
       s(state_namef, bs="re"), 
-    correlation = corARMA(form = ~ 1|year, p = 1), 
+    correlation = corARMA(form = ~ year|muni_namef, p = 1), 
     data = dfgam_test, 
     method="REML", 
     control = ctrl)
