@@ -605,6 +605,8 @@ summary(model_01ar1_test$lme)
 summary(model_01ar1_test$gam)
 
 #AR ...9
+dfgam$muni_factor <- paste(dfgam$state_name,dfgam$muni_name, sep = "_")
+dfgam$muni_factor <- as.factor(dfgam$muni_factor)
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                              pres_groupf + 
                              s(year, by = state_namef, k=5, m=1, bs="tp") +
