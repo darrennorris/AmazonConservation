@@ -624,7 +624,13 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
 saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 summary(model_01_ar1$lme) 
-summary(model_01_ar1$gam)
+summary(model_01_ar1$gam) #r2 = 0.83
+gam.check(model_01_ar1$gam) 
+summary(model_00)
+plot(model_00, scale = 0)
+saveRDS(model_00, "model_00.rds")
+model_00 <- readRDS("model_00.rds")
+
 
 model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        pres_groupf +
@@ -663,7 +669,7 @@ anova(model_01$lme, model_01_ar2$lme, model_01_ar3$lme)
 
 res_gamm <- resid(model_01$lme, type = "normalized")
 #res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
-res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
+
 
 
 #residuals
@@ -682,6 +688,12 @@ hist(res_gamm_art)
 df_art <- model_01ar1_test$lme$data[,1:11]
 df_art$m01_res_gamm_art <- res_gamm_art
 
+#Ar1
+res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
+hist(res_gamm_ar1)
+df_ar1 <- model_01_ar1$lme$data[,1:13]
+df_ar1$m01_res_gamm_ar1 <- res_gamm_ar1
+
 #AR2
 res_gamm_ar2 <- resid(model_01_ar2$lme, type = "normalized")
 df_ar2 <- model_01_ar2$lme$data[,1:11]
@@ -692,11 +704,11 @@ df_ar3 <- model_01_ar3$lme$data[,1:11]
 df_ar3$m01_res_gamm_ar3 <- res_gamm_ar3
 
 library(timetk)
-df_art %>%
+df_ar1 %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = m01_res_gamm_art, 
+    .value = m01_res_gamm_ar1, 
     .lags = 11
   ) -> tidy_acf
 
@@ -724,7 +736,7 @@ tidy_acf %>%
     plot.title = element_text(hjust = 0.5)
   ) + labs(
     title = "Partial AutoCorrelation (PACF)",
-    subtitle = "GAM residuals", 
+    subtitle = "GAMM AR(1) residuals", 
     x = "lag (year)"
   )
 
