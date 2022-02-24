@@ -606,17 +606,19 @@ summary(model_01ar1_test$gam)
 
 #AR ...9
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
-                       pres_groupf +
-                       s(pop_dens_km2) +
-                       s(tot_loss5y_percent) +
-                       s(gva_agri_percapita_reais) +
-                       s(school_per1000) + 
-                       s(pg_per1000) + 
-                       s(dist_statecapital_km, by = state_namef), 
-                         method="REML", 
-                     data = dfgam,
-                   correlation = corARMA(form = ~ 1|year, p = 1), 
-                 control = ctrl)
+                             pres_groupf + 
+                             s(year, by = state_namef, k=5, m=1, bs="tp") +
+                             s(gva_agri_percapita_reais) + 
+                             s(pop_dens_km2) +
+                             s(tot_loss5y_percent) +
+                             s(school_per1000) + 
+                             s(pg_per1000) + 
+                             s(dist_statecapital_km, by = state_namef) + 
+                             s(state_namef, bs="re"), 
+                           correlation = corARMA(form = ~ year|muni_namef, p = 1), 
+                           data = dfgam, 
+                           method="REML", 
+                           control = ctrl)
 saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 summary(model_01_ar1$lme) 
