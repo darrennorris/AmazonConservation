@@ -666,6 +666,14 @@ dfgam$m00_res_gam <- res_gam
 
 dfgam$m01_res_gamm <- res_gamm
 dfgam$m01_res_gamm_ar1 <- res_gamm_ar1
+
+#AR test
+model_01ar1_test
+res_gamm_art <- resid(model_01ar1_test$lme, type = "normalized")
+hist(res_gamm_art)
+df_art <- model_01ar1_test$lme$data[,1:11]
+df_art$m01_res_gamm_art <- res_gamm_art
+
 #AR2
 res_gamm_ar2 <- resid(model_01_ar2$lme, type = "normalized")
 df_ar2 <- model_01_ar2$lme$data[,1:11]
@@ -676,11 +684,11 @@ df_ar3 <- model_01_ar3$lme$data[,1:11]
 df_ar3$m01_res_gamm_ar3 <- res_gamm_ar3
 
 library(timetk)
-dfgam %>%
+df_art %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = m00_res_gam, 
+    .value = m01_res_gamm_art, 
     .lags = 11
   ) -> tidy_acf
 
