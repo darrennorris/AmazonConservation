@@ -617,7 +617,7 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                              s(pg_per1000) + 
                              s(dist_statecapital_km, by = state_namef) + 
                              s(state_namef, bs="re"), 
-                           correlation = corARMA(form = ~ year|muni_namef, p = 1), 
+                           correlation = corARMA(form = ~ year|muni_factor, p = 1), 
                            data = dfgam, 
                            method="REML", 
                            control = ctrl)
