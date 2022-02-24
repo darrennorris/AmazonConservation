@@ -486,6 +486,7 @@ dfgam$muni_namef <- as.factor(dfgam$muni_name)
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
 dfgam$pres_groupf <- as.factor(dfgam$pres_group)
+dfgam$yearf <- as.factor(dfgam$year)
 levels(dfgam$pres_groupf)#left wing Lula is the reference level
 saveRDS(dfgam, "dfgam.rds")
 dfgam <- readRDS("dfgam.rds")
@@ -520,8 +521,10 @@ testlog <- log(dfgam$gdp_percapita_reais)
 hist(testlog)
 #lags (gdp and gva) do not improve model
 memory.limit(30000)#needed to run gam.check
+myctrl <- list(keepData = TRUE)
 model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                   pres_groupf + 
+                  s(yearf, bs="re") +
                   s(pop_dens_km2) +
                   s(tot_loss5y_percent) +
                   s(gva_agri_percapita_reais) +
@@ -531,7 +534,7 @@ model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                  data = dfgam, 
                 family = "tw",
                 method="REML", 
-                gam.control = (keepData = TRUE))
+                gam.control = myctrl)
 gam.check(model_00) 
 summary(model_00)
 plot(model_00, scale = 0)
