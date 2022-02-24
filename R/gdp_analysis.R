@@ -44,7 +44,8 @@ df_muni_year %>%
   arrange(state_name, muni_name) %>% 
   group_by(state_name, muni_name) %>% 
   mutate(lag01_gva_agri = lag(gva_agri_percapita_reais, order_by = year), 
-         lag01_gdp = lag(gva_agri_percapita_reais, order_by = year)) -> df_muni_year
+         lag01_gdp = lag(gva_agri_percapita_reais, order_by = year)) %>% 
+  ungroup() -> df_muni_year
 
 #Basic reference vectors
 bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
@@ -626,9 +627,9 @@ res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
 #Add residuals to model data.frame
 res_gam <- resid(model_00, type = "deviance")
 hist(res_gam)
-df_00 <- model_00$data[,1:11]
-model_00$control$keepData
-dfgam$m01_res_gam <- res_gam
+#df_00 <- model_00$data[,1:11]
+dfgam$m00_res_gam <- res_gam
+
 dfgam$m01_res_gamm <- res_gamm
 dfgam$m01_res_gamm_ar1 <- res_gamm_ar1
 #AR2
@@ -641,17 +642,17 @@ df_ar3 <- model_01_ar3$lme$data[,1:11]
 df_ar3$m01_res_gamm_ar3 <- res_gamm_ar3
 
 library(timetk)
-df_ar3 %>%
+dfgam %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = m01_res_gamm_ar3, 
+    .value = m00_res_gam, 
     .lags = 11
   ) -> tidy_acf
 
 #export as .png  250 * 1000
 tidy_acf %>% 
-  ggplot(aes(x = lag, y = ACF, color = state_namef, 
+  ggplot(aes(x = lag, y = PACF, color = state_namef, 
              group = state_namef)) +
   # Add horizontal line a y=0
   geom_hline(yintercept = 0) +
@@ -672,8 +673,8 @@ tidy_acf %>%
     axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title = element_text(hjust = 0.5)
   ) + labs(
-    title = "AutoCorrelation (ACF)",
-    subtitle = "GAMM AR(3) residuals", 
+    title = "Partial AutoCorrelation (PACF)",
+    subtitle = "GAM residuals", 
     x = "lag (year)"
   )
 
