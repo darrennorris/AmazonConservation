@@ -588,7 +588,11 @@ arma_res$coef
 model_01ar1_test <-gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
       pres_groupf + 
       s(year, by = state_namef, k=5, m=1, bs="tp") +
-      s(gva_agri_percapita_reais) +
+      s(gva_agri_percapita_reais) + 
+        s(pop_dens_km2) +
+        s(tot_loss5y_percent) +
+        s(school_per1000) + 
+        s(pg_per1000) + 
       s(dist_statecapital_km, by = state_namef) + 
       s(state_namef, bs="re"), 
     correlation = corARMA(form = ~ year|muni_namef, p = 1), 
@@ -597,7 +601,8 @@ model_01ar1_test <-gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
     control = ctrl)
 saveRDS(model_01ar1_test, "model_01ar1_test.rds")
 model_01ar1_test <- readRDS("model_01ar1_test.rds")
-
+summary(model_01ar1_test$lme) 
+summary(model_01ar1_test$gam)
 
 #AR ...9
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
