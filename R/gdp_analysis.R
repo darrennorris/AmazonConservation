@@ -532,6 +532,11 @@ model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                 family = "tw",
                 method="REML", 
                 control = myctrl)
+gam.check(model_00) 
+summary(model_00)
+plot(model_00, scale = 0)
+saveRDS(model_00, "model_00.rds")
+model_00 <- readRDS("model_00.rds")
 
 model_00 <- gam(log(gdp_percapita_reais) ~ year*flag_urbanf +
                   pres_groupf + 
