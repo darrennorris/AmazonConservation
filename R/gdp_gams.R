@@ -35,7 +35,7 @@ saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 summary(model_01_ar1$lme)
 anova(model_01_ar1$lme)
-summary(model_01_ar1$gam) #r2 = 0.833
+summary(model_01_ar1$gam) #r2 = 0.925
 gam.check(model_01_ar1$gam) #problem with residual > 1
 
 #Residuals
@@ -43,13 +43,13 @@ gam.check(model_01_ar1$gam) #problem with residual > 1
 res_gamm_ar1_lme <- resid(model_01_ar1$lme, type = "normalized")
 res_gamm_ar1_gam <- resid(model_01_ar1$gam, type = "deviance")
 hist(res_gamm_ar1_lme) #problem with residual > 10
-hist(res_gamm_ar1_gam) #problem with residual > 1
+hist(res_gamm_ar1_gam) #problem with residual > 0.6
 df_ar1 <- model_01_ar1$lme$data[,1:13] %>% 
   separate(muni_factor, into = c("state_name", "muni_name"), 
            sep = "_", remove = FALSE)
 df_ar1$m01_res_gamm_ar1_lme <- res_gamm_ar1_lme
 df_ar1$m01_res_gamm_ar1_gam <- res_gamm_ar1_gam
-hist(df_ar1$`log(gdp_percapita_reais)`)
+
 
 #log(gdp) 8.9, 9, 10, 11, 12
 #Maranhão_Santo Antônio dos Lopes lme residual 21.77
@@ -88,7 +88,7 @@ df_ar1 %>%
 
 #export as .png  250 * 1000
 tidy_acf %>% 
-  ggplot(aes(x = lag, y = PACF, color = state_namef, 
+  ggplot(aes(x = lag, y = ACF, color = state_namef, 
              group = state_namef)) +
   # Add horizontal line a y=0
   geom_hline(yintercept = 0) +
@@ -109,8 +109,67 @@ tidy_acf %>%
     axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title = element_text(hjust = 0.5)
   ) + labs(
-    title = "Partial AutoCorrelation (PACF)",
+    title = "AutoCorrelation (ACF)",
     subtitle = "GAMM AR(1) residuals", 
     x = "lag (year)"
   )
 
+#Spatial pattern in residuals
+#AR1
+
+#Map with polygons
+sf_ninestate_muni %>% left_join(
+  df_ar1 %>%
+    group_by(state_name, muni_name) %>% 
+    summarise(median_resid = median(m01_res_gamm_ar1_lme), 
+              sd_resid = sd(m01_res_gamm_ar1_lme)) %>% 
+    left_join(dfstates, 
+              by = c("state_name" = "bla_state_names")), 
+  by = c("SIGLA_UF"="bla_state_siglas" ,"NM_MUN"="muni_name")
+) %>% 
+  filter(!is.na(median_resid)) %>%
+  ggplot() + geom_sf(aes(fill = median_resid)) + 
+  scale_fill_viridis_c("residual")
+
+#Spatial autocorrelation
+#Distance matrix from locations of the mayors office
+##763
+bla_city %>% left_join(data.frame(sf_ninestate_muni) %>% 
+                         select(!geometry), 
+                       by = c("CD_GEOCODM"="CD_MUN")) %>% 
+  right_join(df_ar1 %>%
+               group_by(state_name, muni_name) %>% 
+               summarise(median_resid = median(m01_res_gamm_ar1_lme), 
+                         sd_resid = sd(m01_res_gamm_ar1_lme)) %>% 
+               left_join(dfstates, 
+                         by = c("state_name" = "bla_state_names")), 
+             by = c("SIGLA_UF" = "bla_state_siglas", "NM_MUN" = "muni_name")) %>% 
+  st_transform(crs=3395)-> sf_point_residuals
+
+library(geoR)
+coords<-matrix(0,nrow(sf_point_residuals),2) 
+coords[,1]<-st_coordinates(sf_point_residuals)[,'X'] 
+coords[,2]<-st_coordinates(sf_point_residuals)[,'Y']   
+#Median
+gb<-list(data=sf_point_residuals$median_resid, coords=coords)
+myvar <- variog(gb,max.dist = 1000000)
+mye <- variog.mc.env(gb, obj.var = myvar)
+#scale to km
+mye$u <- mye$u / 1000
+myvar$u <- myvar$u/1000
+myvar$bins.lim <- myvar$bins.lim/1000
+myvar$max.dist <- myvar$max.dist/1000
+myvar$uvec <- myvar$uvec/1000
+plot(myvar, var.lines=TRUE, envelope.obj = mye, xlab = "distance (km)")
+
+#SD
+gb<-list(data=sf_point_residuals$sd_resid, coords=coords)
+myvar <- variog(gb, max.dist = 1000000)
+mye <- variog.mc.env(gb, obj.variog = myvar)
+#scale to km
+mye$u <- mye$u / 1000
+myvar$u <- myvar$u/1000
+myvar$bins.lim <- myvar$bins.lim/1000
+myvar$max.dist <- myvar$max.dist/1000
+myvar$uvec <- myvar$uvec/1000
+plot(myvar, var.lines=TRUE, envelope.obj = mye, xlab = "distance (km)")
