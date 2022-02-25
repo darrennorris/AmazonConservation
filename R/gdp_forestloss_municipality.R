@@ -44,8 +44,19 @@ sf_ninestate %>% ggplot() + geom_sf(aes(fill = SIGLA_UF))
 
 #GDP per capita and GVA by agriculture per capita 2002 - 2019 (from ibge_sidrar_tidy)
 df_gdppop_muni_02a19 <- read_excel("data//bla_municipality_gdppop_02a19.xlsx", 
-                                   na = c("", "NA"),
-                                .name_repair = "universal")
+                                   na = c("", "NA"), .name_repair = "universal")
+#Export gva for industry
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>%
+  crossing(year = 2002:2019) %>% left_join(
+     df_gdppop_muni_02a19,  
+     by = c("uf_sigla" = "uf_sigla", "year" = "year", "NM_MUN" = "name_muni")) %>%
+arrange(uf_sigla, NM_MUN, year) %>% 
+  write.csv("muni_fixed_gva_industry_long.csv", row.names = FALSE)
+
 #Salary etc
 df_salary_muni_06a19 <- read_excel("data//muni_salary.xlsx", 
                                    na = c("", "NA"),

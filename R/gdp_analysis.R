@@ -458,7 +458,8 @@ df_muni %>%
 var_response <- c("gdp_percapita_reais")
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecapital_km", 
          "flag_urban")
-var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", "gva_agri_percapita_reais",
+var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", 
+                  "gva_agri_percapita_reais", "gva_industry_percent", 
                   "school_per1000", "superior_course_per1000", "pg_per1000", 
                   "president", "pres_group")
 var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per", 
@@ -480,8 +481,7 @@ df_muni_year %>%
            lag04_lossarea_per + lag05_lossarea_per, 
          adate = as.Date(paste(year,"-01", "-01", sep="")), 
          format = c("%Y-%m-%d")) -> dfgam
-
-which(is.na(dfgam)[,3]) #
+which(is.na(dfgam)[,3]) #0 no nulls
 dfgam$muni_namef <- as.factor(dfgam$muni_name) 
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
@@ -583,7 +583,7 @@ arma_res <- auto.arima(resid(model_01$lme, type = "normalized"),
 arma_res$coef
 #        ar1         ma1 
 #0.88137497 -0.03356724 
-
+memory.limit(30000)#needed to speed up models and run gam.check
 # AR test
 model_01ar1_test <-gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
       pres_groupf + 
@@ -604,7 +604,7 @@ model_01ar1_test <- readRDS("model_01ar1_test.rds")
 summary(model_01ar1_test$lme) 
 summary(model_01ar1_test$gam)
 
-#AR ...9
+#GAMM AR ...
 dfgam$muni_factor <- paste(dfgam$state_name,dfgam$muni_name, sep = "_")
 dfgam$muni_factor <- as.factor(dfgam$muni_factor)
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
@@ -625,52 +625,10 @@ saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 summary(model_01_ar1$lme) 
 summary(model_01_ar1$gam) #r2 = 0.83
-gam.check(model_01_ar1$gam) 
-summary(model_00)
-plot(model_00, scale = 0)
-saveRDS(model_00, "model_00.rds")
-model_00 <- readRDS("model_00.rds")
-
-
-model_01_ar2 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
-                       pres_groupf +
-                       s(pop_dens_km2) +
-                       s(tot_loss5y_percent) +
-                       s(gva_agri_percapita_reais) +
-                       s(school_per1000) + 
-                       s(pg_per1000) + 
-                       s(dist_statecapital_km, by = state_namef), 
-                     method="REML", 
-                     data = dfgam,
-                     correlation = corARMA(form = ~ 1|year, p = 2), 
-                     control = ctrl)
-saveRDS(model_01_ar2, "model_01_ar2.rds")
-model_01_ar2 <- readRDS("model_01_ar2.rds")
-summary(model_01_ar2$lme) 
-summary(model_01_ar2$gam)
-
-model_01_ar3 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
-                       pres_groupf +
-                       s(pop_dens_km2) +
-                       s(tot_loss5y_percent) +
-                       s(gva_agri_percapita_reais) +
-                       s(school_per1000) + 
-                       s(pg_per1000) + 
-                       s(dist_statecapital_km, by = state_namef), 
-                     method="REML", 
-                     data = dfgam,
-                     correlation = corARMA(form = ~ 1|year, p = 3), 
-                     control = ctrl)
-saveRDS(model_01_ar3, "model_01_ar3.rds")
-model_01_ar3 <- readRDS("model_01_ar3.rds")
+gam.check(model_01_ar1$gam) #problem is with residual > 1
 
 #Compare models
-anova(model_01$lme, model_01_ar2$lme, model_01_ar3$lme)
-
-res_gamm <- resid(model_01$lme, type = "normalized")
-#res_gamm_ar4 <- resid(model_01_ar4$lme, type = "normalized")
-
-
+anova(model_01$lme)
 
 #residuals
 #Add residuals to model data.frame
@@ -689,6 +647,8 @@ df_art <- model_01ar1_test$lme$data[,1:11]
 df_art$m01_res_gamm_art <- res_gamm_art
 
 #Ar1
+res_gamm_lme <- resid(model_01$lme, type = "normalized")
+res_gamm_gam <- resid(model_01$gam, type = "deviance")
 res_gamm_ar1 <- resid(model_01_ar1$lme, type = "normalized")
 hist(res_gamm_ar1)
 df_ar1 <- model_01_ar1$lme$data[,1:13]
