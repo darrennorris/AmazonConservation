@@ -9,6 +9,7 @@ memory.limit(30000)#needed to speed up models and run gam.check
 
 #Uses dfgam from "gdp_analysis.R"
 dfgam <- readRDS("dfgam.rds")
+plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 
 #GAMM AR ...
 dfgam$muni_factor <- paste(dfgam$state_name,dfgam$muni_name, sep = "_")
@@ -19,6 +20,7 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        pres_groupf + 
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
                        s(gva_agri_percapita_reais) + 
+                       s(gva_industry_percent) +
                        s(pop_dens_km2) +
                        s(tot_loss5y_percent) +
                        s(school_per1000) + 
@@ -52,9 +54,9 @@ hist(df_ar1$`log(gdp_percapita_reais)`)
 #log(gdp) 8.9, 9, 10, 11, 12
 #Maranhão_Santo Antônio dos Lopes lme residual 21.77
 df_ar1 %>% filter(m01_res_gamm_ar1_lme > 10) %>% 
-  pull(m01_res_gamm_ar1_lme) %>% length() #8
+  pull(m01_res_gamm_ar1_lme) %>% length() #4
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
-  pull(m01_res_gamm_ar1_gam) %>% length() # 248
+  pull(m01_res_gamm_ar1_gam) %>% length() # 28
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
   arrange(desc(m01_res_gamm_ar1_gam))
 #summary of high residual
