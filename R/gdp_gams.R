@@ -10,7 +10,7 @@ library(gratia)
 memory.limit(30000)
 
 #Uses dfgam from "gdp_analysis.R"
-dfgam <- readRDS("dfgam.rds")
+dfgam <- readRDS("dfgam.rds") #13710 obs. 38 vars
 plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
 # 4956340 km2
@@ -33,6 +33,7 @@ ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B",
 #without AR
 model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        pres_groupf + 
+                       main_sectorf +
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
                        s(gva_agri_percapita_reais) + 
                        s(gva_industry_percent) +
@@ -43,11 +44,15 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        s(dist_statecapital_km, by = state_namef) + 
                        s(state_namef, bs="re"), 
                      data = dfgam, 
-                     method="REML", 
-                     control = ctrl)
+                     method="REML")
+hist(resid(model_01$gam, type = "deviance"))
+summary(model_01$gam) #94.7
+saveRDS(model_01, "model_01.rds")
+model_01 <- readRDS("model_01.rds")
 #with AR
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        pres_groupf + 
+                       main_sectorf +
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
                        s(gva_agri_percapita_reais) + 
                        s(gva_industry_percent) +
@@ -72,7 +77,7 @@ appraise(model_01_ar1$gam)
 
 # Below not working
 # Variance Inflation Factor https://github.com/samclifford/mgcv.helper/blob/master/R/vif.gam.R
-# vif.gam <- function(object){
+ vif.gam <- function(object){
   
   obj.sum <- mgcv::summary.gam(object)
   
@@ -101,8 +106,8 @@ appraise(model_01_ar1$gam)
 res_gamm_ar1_lme <- resid(model_01_ar1$lme, type = "normalized")
 res_gamm_ar1_gam <- resid(model_01_ar1$gam, type = "deviance")
 hist(res_gamm_ar1_lme) #problem with residual > 10
-hist(res_gamm_ar1_gam) #problem with residual > 0.6
-df_ar1 <- model_01_ar1$lme$data[,1:13] %>% 
+hist(res_gamm_ar1_gam) #problem with residual > 1
+df_ar1 <- model_01_ar1$lme$data[,1:15] %>% 
   separate(muni_factor, into = c("state_name", "muni_name"), 
            sep = "_", remove = FALSE)
 df_ar1$m01_res_gamm_ar1_lme <- res_gamm_ar1_lme
@@ -113,7 +118,7 @@ df_ar1$m01_res_gamm_ar1_gam <- res_gamm_ar1_gam
 df_ar1 %>% filter(m01_res_gamm_ar1_lme > 10) %>% 
   pull(m01_res_gamm_ar1_lme) %>% length() #4
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
-  pull(m01_res_gamm_ar1_gam) %>% length() # 28
+  pull(m01_res_gamm_ar1_gam) %>% length() # 24
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
   arrange(desc(m01_res_gamm_ar1_gam))
 #summary of high residual
