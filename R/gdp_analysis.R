@@ -460,6 +460,7 @@ var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecap
          "flag_urban")
 var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", 
                   "gva_agri_percapita_reais", "gva_industry_percent", 
+                  "main_sector",
                   "school_per1000", "superior_course_per1000", "pg_per1000", 
                   "president", "pres_group")
 var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per", 
@@ -487,9 +488,14 @@ dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
 dfgam$pres_groupf <- as.factor(dfgam$pres_group)
 dfgam$yearf <- as.factor(dfgam$year)
-levels(dfgam$pres_groupf)#left wing Lula is the reference level
+dfgam$muni_factor <- paste(dfgam$state_name, dfgam$muni_name, sep = "_")
+dfgam$muni_factor <- as.factor(dfgam$muni_factor)
+levels(dfgam$pres_groupf)#left wing Lula is the reference level 
+dfgam$main_sectorf <- as.factor(dfgam$main_sector)
 saveRDS(dfgam, "dfgam.rds")
 dfgam <- readRDS("dfgam.rds")
+
+
 
 #Subset to develop models
 unique(dfgam$state_name)
@@ -512,6 +518,7 @@ cor.test(dfgam$gdp_percapita_reais,
          dfgam$superior_course_per1000) #- 0.004 NS
 cor.test(dfgam$gdp_percapita_reais, 
          dfgam$pg_per1000) #0.078
+psych::pairs.panels(dfgam[, ])
 
 #Model
 #Need to use log as there are (5 or so) extreme outlier gdp_percapita values 

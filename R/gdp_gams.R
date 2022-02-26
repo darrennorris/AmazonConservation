@@ -4,18 +4,48 @@ library(tidyverse)
 library(mgcv)
 library(stringi)
 library(timetk)
+library(gratia)
 
-memory.limit(30000)#needed to speed up models and run gam.check
+#extra memory to speed up models, pairs panel and  gam.check
+memory.limit(30000)
 
 #Uses dfgam from "gdp_analysis.R"
 dfgam <- readRDS("dfgam.rds")
 plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
+#length(unique(dfgam$muni_factor)) #763 municipalities
+# 4956340 km2
+#dfgam %>% group_by(state_name, muni_name) %>% 
+#  summarise(area_km2 = max(muni_area_km2)) %>% pull(area_km2) %>% sum()
 
-#GAMM AR ...
-dfgam$muni_factor <- paste(dfgam$state_name,dfgam$muni_name, sep = "_")
-dfgam$muni_factor <- as.factor(dfgam$muni_factor)
+#correlations with time varying covariates
+#names(dfgam)
+psych::pairs.panels(dfgam[, c('gdp_percapita_reais',
+                              'gva_agri_percapita_reais', 
+                              'gva_industry_percent', 
+                              'pop_dens_km2', 
+                              'tot_loss5y_percent', 
+                              'school_per1000', 
+                              'pg_per1000')])
+
+#GAMM ARMA (AR1) ...
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99, keepData = TRUE)
+#without AR
+model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
+                       pres_groupf + 
+                       s(year, by = state_namef, k=5, m=1, bs="tp") +
+                       s(gva_agri_percapita_reais) + 
+                       s(gva_industry_percent) +
+                       s(pop_dens_km2) +
+                       s(tot_loss5y_percent) +
+                       s(school_per1000) + 
+                       s(pg_per1000) + 
+                       s(dist_statecapital_km, by = state_namef) + 
+                       s(state_namef, bs="re"), 
+                     data = dfgam, 
+                     method="REML", 
+                     control = ctrl)
+#with AR
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                        pres_groupf + 
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
@@ -33,10 +63,38 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                      control = ctrl)
 saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
-summary(model_01_ar1$lme)
-anova(model_01_ar1$lme)
+summary(model_01_ar1$lme) #check correlation structure
 summary(model_01_ar1$gam) #r2 = 0.925
+anova(model_01$lme, model_01_ar1$lme)
+
 gam.check(model_01_ar1$gam) #problem with residual > 1
+appraise(model_01_ar1$gam)
+
+# Below not working
+# Variance Inflation Factor https://github.com/samclifford/mgcv.helper/blob/master/R/vif.gam.R
+# vif.gam <- function(object){
+  
+  obj.sum <- mgcv::summary.gam(object)
+  
+  s2 <- object$sig2 # estimate of standard deviation of residuals
+  X <- object$model # data used to fit the model
+  n <- nrow(X) # how many observations were used in fitting?
+  v <- -1 # omit the intercept term, it can't inflate variance
+  varbeta <- obj.sum$p.table[v,2]^2 # variance in estimates
+  selected_col <- row.names(obj.sum$p.table)[v]
+  selected_col <- gsub("TRUE", "", selected_col)
+  varXj <- apply(X=X[, selected_col],MARGIN=2, var) # variance of all the explanatory variables
+  VIF <- varbeta/(s2/(n-1)*1/varXj) # the variance inflation factor, obtained by rearranging
+  # var(beta_j) = s^2/(n-1) * 1/var(X_j) * VIF_j
+  
+  VIF.df <- tibble::tibble(variable=names(VIF),
+                           vif=VIF)
+  
+  return(VIF.df)
+}
+# vif.gam(model_01_ar1$gam) #Error in `[.data.frame`(X, , selected_col) : undefined columns selected
+#mod01 <- model_01_ar1$gam
+#vif.gam(mod01) #Error in `[.data.frame`(X, , selected_col) : undefined columns selected
 
 #Residuals
 #AR1
@@ -49,7 +107,6 @@ df_ar1 <- model_01_ar1$lme$data[,1:13] %>%
            sep = "_", remove = FALSE)
 df_ar1$m01_res_gamm_ar1_lme <- res_gamm_ar1_lme
 df_ar1$m01_res_gamm_ar1_gam <- res_gamm_ar1_gam
-
 
 #log(gdp) 8.9, 9, 10, 11, 12
 #Maranhão_Santo Antônio dos Lopes lme residual 21.77

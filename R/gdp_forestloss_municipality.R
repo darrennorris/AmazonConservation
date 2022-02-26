@@ -44,7 +44,43 @@ sf_ninestate %>% ggplot() + geom_sf(aes(fill = SIGLA_UF))
 
 #GDP per capita and GVA by agriculture per capita 2002 - 2019 (from ibge_sidrar_tidy)
 df_gdppop_muni_02a19 <- read_excel("data//bla_municipality_gdppop_02a19.xlsx", 
-                                   na = c("", "NA"), .name_repair = "universal")
+                                   na = c("", "NA"), .name_repair = "universal") %>% 
+  rename(gva_total = Valor.adicionado.bruto.total....a.preços.correntes...R..1.000.) %>% 
+  rename(gva_services = Valor.adicionado.bruto.dos.Serviços...a.preços.correntes.....exceto.Administração..defesa..educação.e.saúde.públicas.e.seguridade.social...R..1.000.)
+
+#export main sector
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>%
+  crossing(year = 2002:2019) %>% left_join(
+df_gdppop_muni_02a19 %>% 
+  #contribution of different sectors to GVA
+  mutate(gva_agri_percent = ((if_else(gva_agri < 0, 0, gva_agri)) / 
+                               gva_total)*100, 
+         gva_services_percent = ((if_else(gva_services <0, 0, gva_services)) / 
+           gva_total)*100 ) %>% 
+  #max sector %
+  mutate(gva_max_percent = pmax(gva_agri_percent, gva_industry_percent, gva_services_percent)) %>% 
+  select(uf_sigla, name_muni, year, 
+         gva_agri_percent, gva_industry_percent, gva_services_percent,
+         gva_max_percent) %>% 
+  #flags to avoid double 
+  mutate(flag_agri = if_else(gva_agri_percent == gva_max_percent, 1,0), 
+         flag_ind = if_else(gva_industry_percent == gva_max_percent, 1,0), 
+         flag_serv = if_else(gva_services_percent == gva_max_percent, 1,0)) %>% 
+  #identify main sector
+  mutate(main_sector = case_when((flag_agri + flag_ind + flag_serv) > 1  ~ NA_character_, 
+                                 flag_agri == 1 ~ "agriculture", 
+                                 flag_ind == 1 ~ "industry", 
+                                 flag_serv == 1 ~"services",
+                                 TRUE ~ NA_character_)),  
+by = c("uf_sigla" = "uf_sigla", "year" = "year", "NM_MUN" = "name_muni")
+) %>% arrange(uf_sigla, NM_MUN, year) %>% 
+  write.csv("muni_fixed_mainsector_long.csv", row.names = FALSE)
+  
+
 #Export gva for industry
 df_gdppop_muni_02a19 %>% 
   group_by(uf_sigla, uf) %>% 
