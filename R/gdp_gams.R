@@ -11,7 +11,7 @@ memory.limit(30000)
 
 #Uses dfgam from "gdp_analysis.R"
 dfgam <- readRDS("dfgam.rds") #13710 obs. 38 vars
-plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
+#plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
 # 4956340 km2
 #dfgam %>% group_by(state_name, muni_name) %>% 
@@ -70,13 +70,14 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*main_sectorf +
 saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 summary(model_01_ar1$lme) #check correlation structure
-summary(model_01_ar1$gam) #r2 = 0.925
-anova(model_01$lme, model_01_ar1$lme)
+summary(model_01_ar1$gam) #r2 = 0.928
 
 gam.check(model_01_ar1$gam) #problem with residual > 1
 appraise(model_01_ar1$gam)
+plot(model_01_ar1$gam, scale = 0, all.terms = TRUE)
+anova(model_01$lme, model_01_ar1$lme)
 
-# Below not working
+# VIF below not working
 # Variance Inflation Factor https://github.com/samclifford/mgcv.helper/blob/master/R/vif.gam.R
  vif.gam <- function(object){
   
