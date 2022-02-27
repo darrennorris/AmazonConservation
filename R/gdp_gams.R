@@ -27,18 +27,15 @@ psych::pairs.panels(dfgam[, c('gdp_percapita_reais',
                               'school_per1000', 
                               'pg_per1000')])
 
-#GAMM ARMA (AR1) ...
-ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
-             maxIter = 99, msMaxIter = 99, keepData = TRUE)
+#GAMM ...
 #without AR
-model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
+model_01 <- gamm(log(gdp_percapita_reais) ~ year*main_sectorf +
                        pres_groupf + 
-                       main_sectorf +
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
-                       s(gva_agri_percapita_reais) + 
-                       s(gva_industry_percent) +
+                       s(gva_agri_percapita_reais, by =main_sectorf) + 
+                       s(gva_industry_percent, by =main_sectorf) +
                        s(pop_dens_km2) +
-                       s(tot_loss5y_percent) +
+                       s(tot_loss5y_percent, by =main_sectorf) +
                        s(school_per1000) + 
                        s(pg_per1000) + 
                        s(dist_statecapital_km, by = state_namef) + 
@@ -46,18 +43,22 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
                      data = dfgam, 
                      method="REML")
 hist(resid(model_01$gam, type = "deviance"))
-summary(model_01$gam) #94.7
+summary(model_01$gam) #r2 95.9. everything significant!
+appraise(model_01$gam)
+plot(model_01$gam, scale = 0, all.terms = TRUE)
 saveRDS(model_01, "model_01.rds")
 model_01 <- readRDS("model_01.rds")
+
 #with AR
-model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*flag_urbanf +
+ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
+             maxIter = 99, msMaxIter = 99, keepData = TRUE)
+model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*main_sectorf +
                        pres_groupf + 
-                       main_sectorf +
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
-                       s(gva_agri_percapita_reais) + 
+                       s(gva_agri_percapita_reais, by =main_sectorf) + 
                        s(gva_industry_percent) +
                        s(pop_dens_km2) +
-                       s(tot_loss5y_percent) +
+                       s(tot_loss5y_percent, by =main_sectorf) +
                        s(school_per1000) + 
                        s(pg_per1000) + 
                        s(dist_statecapital_km, by = state_namef) + 
@@ -114,9 +115,14 @@ df_ar1$m01_res_gamm_ar1_lme <- res_gamm_ar1_lme
 df_ar1$m01_res_gamm_ar1_gam <- res_gamm_ar1_gam
 
 #log(gdp) 8.9, 9, 10, 11, 12
-#Maranhão_Santo Antônio dos Lopes lme residual 21.77
+#Pará_Jacareacanga, Maranhão_Davinópolis, Santo Antônio dos Lopes 
 df_ar1 %>% filter(m01_res_gamm_ar1_lme > 10) %>% 
   pull(m01_res_gamm_ar1_lme) %>% length() #4
+df_ar1 %>% filter(m01_res_gamm_ar1_lme > 10) %>% 
+  arrange(desc(m01_res_gamm_ar1_lme))
+#GAm residuals
+#Maranhão_Davinópolis, Santo Antônio dos Lopes, 
+#Pará_Canaã dos Carajás, Barcarena
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
   pull(m01_res_gamm_ar1_gam) %>% length() # 24
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
