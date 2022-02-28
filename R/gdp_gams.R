@@ -32,7 +32,7 @@ psych::pairs.panels(dfgam[, c('gdp_percapita_reais',
 model_01 <- gamm(log(gdp_percapita_reais) ~ year*main_sectorf +
                        pres_groupf + 
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
-                       s(gva_agri_percapita_reais, by =main_sectorf) + 
+                       s(gva_agri_percapita_reais) + 
                        s(gva_industry_percent, by =main_sectorf) +
                        s(pop_dens_km2) +
                        s(tot_loss5y_percent, by =main_sectorf) +
@@ -43,20 +43,21 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ year*main_sectorf +
                      data = dfgam, 
                      method="REML")
 hist(resid(model_01$gam, type = "deviance"))
-summary(model_01$gam) #r2 95.9. everything significant!
+summary(model_01$gam) #r2 96.6. everything significant!
 appraise(model_01$gam)
 plot(model_01$gam, scale = 0, all.terms = TRUE)
+
 saveRDS(model_01, "model_01.rds")
 model_01 <- readRDS("model_01.rds")
 
-#with AR
+#with AR worked without admin
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
              maxIter = 99, msMaxIter = 99, keepData = TRUE)
-model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year*main_sectorf +
+model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year +
                        pres_groupf + 
                        s(year, by = state_namef, k=5, m=1, bs="tp") +
-                       s(gva_agri_percapita_reais, by =main_sectorf) + 
-                       s(gva_industry_percent) +
+                       s(gva_agri_percapita_reais) + 
+                       s(gva_industry_percent, by =main_sectorf) +
                        s(pop_dens_km2) +
                        s(tot_loss5y_percent, by =main_sectorf) +
                        s(school_per1000) + 
