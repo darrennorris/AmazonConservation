@@ -71,14 +71,14 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year +
 saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 summary(model_01_ar1$lme) #check correlation structure
-summary(model_01_ar1$gam) #r2 = 0.928
+summary(model_01_ar1$gam) #r2 = 0.934
 
-gam.check(model_01_ar1$gam) #problem with residual > 1
+#gam.check(model_01_ar1$gam) #problem with residual > 1
 appraise(model_01_ar1$gam)
 plot(model_01_ar1$gam, scale = 0, all.terms = TRUE)
-anova(model_01$lme, model_01_ar1$lme)
+#anova(model_01$lme, model_01_ar1$lme)
 
-# VIF below not working
+# VIF code below not working
 # Variance Inflation Factor https://github.com/samclifford/mgcv.helper/blob/master/R/vif.gam.R
  vif.gam <- function(object){
   

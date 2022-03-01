@@ -459,6 +459,7 @@ var_response <- c("gdp_percapita_reais")
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecapital_km", 
          "flag_urban")
 var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", 
+                  "gold_area_km2_percapita",
                   "gva_agri_percapita_reais", "gva_industry_percent", 
                   "main_sector",
                   "school_per1000", "superior_course_per1000", "pg_per1000", 
