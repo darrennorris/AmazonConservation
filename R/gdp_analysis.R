@@ -66,6 +66,63 @@ summary(df_muni$muni_area_km2)
 df_muni %>% filter(!is.na(forest_2019_km2)) %>% 
   pull(muni_area_km2) %>% summary()
 
+#models
+#mgcv timeseries
+#https://petolau.github.io/Analyzing-double-seasonal-time-series-with-GAM-in-R/
+#https://fromthebottomoftheheap.net/2014/05/09/modelling-seasonal-data-with-gam/
+#https://fromthebottomoftheheap.net/2021/02/02/random-effects-in-gams/
+## gva and gdp lags do not improve model
+var_response <- c("gdp_percapita_reais")
+var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecapital_km", 
+                      "flag_urban", "indigenous_area_percent")
+var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", 
+                  "gold_area_km2_percapita",
+                  "gva_agri_percapita_reais", "gva_industry_percent", 
+                  "main_sector",
+                  "school_per1000", "superior_course_per1000", "pg_per1000", 
+                  "president", "pres_group")
+var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per", 
+              "lag04_lossarea_per", "lag05_lossarea_per", "lag06_lossarea_per", 
+              "lag07_lossarea_per", "lag08_lossarea_per", "lag09_lossarea_per", 
+              "lag10_lossarea_per")
+high_gdp_muni <- c("Vitória do Xingu", 
+                   "Canaã dos Carajás", "Campos de Júlio")
+df_muni_year %>% 
+  filter(!is.na(tot_loss_percent), !is.na(school_per1000), 
+         !is.na(superior_course_per1000), !is.na(pg_per1000), 
+         dist_statecapital_km >0) %>% 
+  select(all_of(var_response), all_of(var_timeconstant), all_of(var_timevary), 
+         all_of(var_lags)) %>% 
+  mutate(tot_loss3y_percent = lag01_lossarea_per + 
+           lag02_lossarea_per + lag03_lossarea_per, 
+         tot_loss5y_percent = lag01_lossarea_per + 
+           lag02_lossarea_per + lag03_lossarea_per + 
+           lag04_lossarea_per + lag05_lossarea_per, 
+         adate = as.Date(paste(year,"-01", "-01", sep="")), 
+         format = c("%Y-%m-%d")) -> dfgam
+which(is.na(dfgam)[,3]) #0 no nulls
+dfgam$muni_namef <- as.factor(dfgam$muni_name) 
+dfgam$state_namef <- as.factor(dfgam$state_name)
+dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
+dfgam$pres_groupf <- as.factor(dfgam$pres_group)
+dfgam$yearf <- as.factor(dfgam$year)
+dfgam$muni_factor <- paste(dfgam$state_name, dfgam$muni_name, sep = "_")
+dfgam$muni_factor <- as.factor(dfgam$muni_factor)
+levels(dfgam$pres_groupf)#left wing Lula is the reference level 
+dfgam$main_sectorf <- as.factor(dfgam$main_sector)
+saveRDS(dfgam, "dfgam.rds")
+dfgam <- readRDS("dfgam.rds")
+
+#Subset to develop models
+unique(dfgam$state_name)
+dfgam[which(dfgam$gdp_percapita_reais == max(dfgam$gdp_percapita_reais)), 
+      'state_name']
+dfgam[which(dfgam$gdp_percapita_reais == min(dfgam$gdp_percapita_reais)), 
+      'state_name']
+dfgam %>% 
+  filter(state_name %in% c("Amapá", "Pará", 
+                           "Maranhão")) -> dfgam_test
+
 
 #2019 summaries. reference levels .......
 df_muni_year %>% 

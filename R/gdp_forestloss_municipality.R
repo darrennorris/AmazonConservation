@@ -46,9 +46,128 @@ sf_ninestate %>% ggplot() + geom_sf(aes(fill = SIGLA_UF))
 df_gdppop_muni_02a19 <- read_excel("data//bla_municipality_gdppop_02a19.xlsx", 
                                    na = c("", "NA"), .name_repair = "universal") %>% 
   rename(gva_total = Valor.adicionado.bruto.total....a.preços.correntes...R..1.000.) %>% 
-  rename(gva_services = Valor.adicionado.bruto.dos.Serviços...a.preços.correntes.....exceto.Administração..defesa..educação.e.saúde.públicas.e.seguridade.social...R..1.000.)
+  rename(gva_services = Valor.adicionado.bruto.dos.Serviços...a.preços.correntes.....exceto.Administração..defesa..educação.e.saúde.públicas.e.seguridade.social...R..1.000.) %>%
+  rename(gva_admin = Valor.adicionado.bruto.da.Administração..defesa..educação.e.saúde.públicas.e.seguridade.social....a.preços.correntes...R..1.000.)
 
-#export main sector
+#Export main sector
+#Identify main sector and dominant sectors
+df_gdppop_muni_02a19 %>% 
+  #contribution of different sectors to GVA
+  mutate(gva_agri_percent = ((if_else(gva_agri < 0, 0, gva_agri)) / 
+                               gva_total)*100, 
+         gva_services_percent = ((if_else(gva_services <0, 0, gva_services)) / 
+                                   gva_total)*100, 
+         gva_admin_percent = ((if_else(gva_admin <0, 0, gva_admin)) / 
+                                   gva_total)*100) %>% 
+  #max sector %
+  mutate(gva_max_percent = pmax(gva_agri_percent, gva_industry_percent, 
+                                gva_services_percent, gva_admin_percent)) %>% 
+  select(uf_sigla, name_muni, year, gdp_percapita_reais,
+         gva_agri_percent, gva_industry_percent, gva_services_percent,
+         gva_admin_percent, gva_max_percent) %>% 
+  #flags to avoid double 
+  mutate(flag_agri = if_else(gva_agri_percent == gva_max_percent, 1,0), 
+         flag_ind = if_else(gva_industry_percent == gva_max_percent, 1,0), 
+         flag_serv = if_else(gva_services_percent == gva_max_percent, 1,0), 
+         flag_admin = if_else(gva_admin_percent == gva_max_percent, 1,0)) %>% 
+  #identify main sector
+  mutate(main_sector = case_when((flag_agri + flag_ind + flag_serv + flag_admin) > 1  ~ NA_character_, 
+                                 flag_agri == 1 ~ "agriculture", 
+                                 flag_ind == 1 ~ "industry", 
+                                 flag_serv == 1 ~"services", 
+                                 flag_admin == 1 ~"administration",
+                                 TRUE ~ NA_character_)) -> dfgdp_sector 
+#more than half with constant main sector over time
+dfgdp_sector %>% 
+  group_by(uf_sigla, name_muni) %>% 
+  summarise(unique_main = length(unique(main_sector))) %>% 
+  filter(unique_main==1) #367
+
+#identify dominant sectors
+dfgdp_sector %>% 
+  select(uf_sigla, name_muni, year, gdp_percapita_reais,
+         gva_agri_percent, gva_admin_percent, 
+         gva_industry_percent, gva_services_percent) %>%
+  pivot_longer(cols = starts_with("gva"), names_to = "sector_value",
+               values_to = "gva_percent") %>% 
+  ggplot(aes(x=gva_percent, y=gdp_percapita_reais)) + 
+  geom_point() + 
+  stat_smooth(method="gam") + 
+  facet_wrap(~sector_value)
+
+#The two sectors with highest % are always dominant (account for >50%) 
+dfgdp_sector %>% 
+  select(uf_sigla, name_muni, year, gdp_percapita_reais,
+         gva_agri_percent, gva_admin_percent, 
+         gva_industry_percent, gva_services_percent) %>%
+  pivot_longer(cols = starts_with("gva"), names_to = "sector_value",
+               values_to = "gva_percent") %>% 
+  group_by(uf_sigla, name_muni, gdp_percapita_reais) %>% 
+  arrange(uf_sigla, name_muni, gdp_percapita_reais) %>% 
+  #no ties so this is fine. 1 is low, 4 high value
+  mutate(rank_gva_percent = rank(gva_percent)) %>% 
+  ungroup() %>% 
+  filter(rank_gva_percent > 2) %>% 
+  group_by(uf_sigla, name_muni, year) %>% 
+  summarise(tot_percent = sum(gva_percent)) %>% 
+  pull(tot_percent) %>% summary()
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#51.81   72.56   77.93   77.29   82.52   98.29   
+
+#create dominant sectors, 117 municipalities have same dominant sectors over time
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>%
+  crossing(year = 2002:2019) %>% left_join(
+dfgdp_sector %>% 
+  select(uf_sigla, name_muni, year, gdp_percapita_reais,
+         gva_agri_percent, gva_admin_percent, 
+         gva_industry_percent, gva_services_percent) %>%
+  pivot_longer(cols = starts_with("gva"), names_to = "sector_value", 
+               names_prefix = "gva_",
+               values_to = "gva_percent") %>% 
+  #rank
+  group_by(uf_sigla, name_muni, gdp_percapita_reais) %>% 
+  arrange(uf_sigla, name_muni, gdp_percapita_reais) %>% 
+  #no ties so this is fine. 1 is low, 4 high value
+  mutate(rank_gva_percent = rank(gva_percent)) %>% 
+  filter(rank_gva_percent == 4) %>% 
+  select(!rank_gva_percent) %>% 
+  rename(main_sector = sector_value, main_gva_percent = gva_percent) %>% 
+  left_join(
+    dfgdp_sector %>% 
+      select(uf_sigla, name_muni, year, gdp_percapita_reais,
+             gva_agri_percent, gva_admin_percent, 
+             gva_industry_percent, gva_services_percent) %>%
+      pivot_longer(cols = starts_with("gva"), names_to = "sector_value", 
+                   names_prefix = "gva_",
+                   values_to = "gva_percent") %>% 
+      #rank
+      group_by(uf_sigla, name_muni, gdp_percapita_reais) %>% 
+      arrange(uf_sigla, name_muni, gdp_percapita_reais) %>% 
+      #no ties so this is fine. 1 is low, 4 high value
+      mutate(rank_gva_percent = rank(gva_percent)) %>% 
+      filter(rank_gva_percent == 3) %>% 
+      select(!rank_gva_percent) %>% 
+      rename(second_sector = sector_value, second_gva_percent = gva_percent)
+    
+  ) %>% 
+  mutate(dominant_sectors = if_else(main_gva_percent > 50, main_sector, 
+                                     paste(main_sector, second_sector, sep="_"))),  
+by = c("uf_sigla" = "uf_sigla", "year" = "year", "NM_MUN" = "name_muni")
+) %>% arrange(uf_sigla, NM_MUN, year) %>% 
+  write.csv("muni_fixed_dominantsector_long.csv", row.names = FALSE)
+  
+  
+#  group_by(uf_sigla, name_muni) %>% 
+#  summarise(unique_dominant = length(unique(dominant_sectors))) %>% 
+#  filter(unique_dominant==1) #117
+  
+
+
+
 df_gdppop_muni_02a19 %>% 
   group_by(uf_sigla, uf) %>% 
   summarise(count_muni = length(unique(codmun7))) %>% right_join(

@@ -5,8 +5,9 @@ library(mgcv)
 library(stringi)
 library(timetk)
 library(gratia)
+library(sf)
 
-#extra memory to speed up models, pairs panel and  gam.check
+#extra memory to speed up models, pairs panel, gam.check etc
 memory.limit(30000)
 
 #Uses dfgam from "gdp_analysis.R"
@@ -18,16 +19,20 @@ dfgam <- readRDS("dfgam.rds") #13710 obs. 39 vars
 #  summarise(area_km2 = max(muni_area_km2)) %>% pull(area_km2) %>% sum()
 
 #correlations with time varying covariates
-#names(dfgam)
-psych::pairs.panels(dfgam[, c('gdp_percapita_reais',
-                              'gva_agri_percapita_reais', 
-                              'gva_industry_percent', 
-                              'pop_dens_km2', 
-                              'tot_loss5y_percent', 
-                              'school_per1000', 
-                              'pg_per1000')])
+#Pairs panel with human readable names
+pairs_vars <- c('gdp_percapita_reais', 'gold_area_km2_percapita',
+               'gva_agri_percapita_reais', 'gva_industry_percent', 
+               'pop_dens_km2', 'tot_loss5y_percent', 
+               'school_per1000', 'pg_per1000')
+dfgam %>%
+  select(all_of(pairs_vars)) %>%
+  rename(GDP = gdp_percapita_reais, gold = gold_area_km2_percapita, 
+         agri = gva_agri_percapita_reais, industry = gva_industry_percent, 
+         pop = pop_dens_km2, forest_loss = tot_loss5y_percent, 
+         schools = school_per1000, post_grad = pg_per1000) %>%
+psych::pairs.panels()
 
-#GAMM ...
+#GAMM models...
 #without AR
 model_01 <- gamm(log(gdp_percapita_reais) ~ year +
                        pres_groupf + 
@@ -43,13 +48,13 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ year +
                        s(state_namef, bs="re"), 
                      data = dfgam, 
                      method="REML")
+saveRDS(model_01, "model_01.rds")
+model_01 <- readRDS("model_01.rds")
 hist(resid(model_01$gam, type = "deviance"))
 summary(model_01$gam) #r2 96.2. everything significant!
 appraise(model_01$gam)
 plot(model_01$gam, scale = 0, all.terms = TRUE)
 
-saveRDS(model_01, "model_01.rds")
-model_01 <- readRDS("model_01.rds")
 
 #with AR worked without admin
 ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
@@ -128,7 +133,7 @@ df_ar1 %>% filter(m01_res_gamm_ar1_lme > 10) %>%
 #Maranhão_Davinópolis, Santo Antônio dos Lopes, 
 #Pará_Canaã dos Carajás, Barcarena
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
-  pull(m01_res_gamm_ar1_gam) %>% length() # 24
+  pull(m01_res_gamm_ar1_gam) %>% length() # 31
 df_ar1 %>% filter(m01_res_gamm_ar1_gam > 1) %>% 
   arrange(desc(m01_res_gamm_ar1_gam))
 #summary of high residual
@@ -160,7 +165,7 @@ df_ar1 %>%
 
 #export as .png  250 * 1000
 tidy_acf %>% 
-  ggplot(aes(x = lag, y = ACF, color = state_namef, 
+  ggplot(aes(x = lag, y = PACF, color = state_namef, 
              group = state_namef)) +
   # Add horizontal line a y=0
   geom_hline(yintercept = 0) +
@@ -181,13 +186,22 @@ tidy_acf %>%
     axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title = element_text(hjust = 0.5)
   ) + labs(
-    title = "AutoCorrelation (ACF)",
+    title = "Partial ACF (PACF)",
     subtitle = "GAMM AR(1) residuals", 
     x = "lag (year)"
   )
 
 #Spatial pattern in residuals
 #AR1
+#Basic reference vectors
+bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
+                     "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
+bla_state_siglas <- c("AC", "AP", "AM", "MA", 
+                      "MT", "PA", "TO", "RO", "RR")
+dfstates <- data.frame(bla_state_names, bla_state_siglas)
+#Municipal polygons
+ibge_muni <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\analysis\\br_municipios_20200807\\BR_Municipios_2019.shp"
+sf_ninestate_muni <- st_read(ibge_muni) %>% filter(SIGLA_UF %in% bla_state_siglas)
 
 #Map with polygons
 sf_ninestate_muni %>% left_join(
@@ -200,12 +214,32 @@ sf_ninestate_muni %>% left_join(
   by = c("SIGLA_UF"="bla_state_siglas" ,"NM_MUN"="muni_name")
 ) %>% 
   filter(!is.na(median_resid)) %>%
-  ggplot() + geom_sf(aes(fill = median_resid)) + 
+  ggplot() + geom_sf(aes(fill = sd_resid)) + 
   scale_fill_viridis_c("residual")
 
-#Spatial autocorrelation
+# Pará  Jacareacanga, Maranhão Davinópolis
+df_ar1 %>%
+  group_by(state_name, muni_name) %>% 
+  summarise(median_resid = median(m01_res_gamm_ar1_lme), 
+            sd_resid = sd(m01_res_gamm_ar1_lme)) %>% 
+              arrange(desc(sd_resid))
+
+#Semivariograms
 #Distance matrix from locations of the mayors office
 ##763
+#City points
+ibge_city <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\AmazonConservation\\vector\\brazil_cities\\BR_Localidades_2010_v1.shp"
+sf_city <- st_read(ibge_city, options = "ENCODING=WINDOWS-1252") %>% 
+  filter(NM_CATEGOR == "CIDADE", CD_GEOCODM %in% all_of(sf_ninestate_muni$CD_MUN))
+moji <- data.frame(CD_GEOCODM = "1504752", NM_MUNICIP = "Mojuí dos Campos", 
+                   LONG = -54.6431, LAT = -2.68472, ALT = 84)
+pt1 <- st_point(c(-54.6431, -2.68472))
+moji$geometry <- st_sfc(pt1)
+sf_moji <- st_as_sf(moji)
+#Add moji missing from 2010 data
+sf_city %>% select(CD_GEOCODM, NM_MUNICIP, LONG, LAT, ALT) %>% 
+  bind_rows(sf_moji) -> bla_city
+
 bla_city %>% left_join(data.frame(sf_ninestate_muni) %>% 
                          select(!geometry), 
                        by = c("CD_GEOCODM"="CD_MUN")) %>% 
