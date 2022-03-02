@@ -10,7 +10,7 @@ library(gratia)
 memory.limit(30000)
 
 #Uses dfgam from "gdp_analysis.R"
-dfgam <- readRDS("dfgam.rds") #13710 obs. 38 vars
+dfgam <- readRDS("dfgam.rds") #13710 obs. 39 vars
 #plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
 # 4956340 km2
@@ -29,21 +29,22 @@ psych::pairs.panels(dfgam[, c('gdp_percapita_reais',
 
 #GAMM ...
 #without AR
-model_01 <- gamm(log(gdp_percapita_reais) ~ year*main_sectorf +
+model_01 <- gamm(log(gdp_percapita_reais) ~ year +
                        pres_groupf + 
-                       s(year, by = state_namef, k=5, m=1, bs="tp") +
-                       s(gva_agri_percapita_reais) + 
-                       s(gva_industry_percent, by =main_sectorf) +
-                       s(pop_dens_km2) +
-                       s(tot_loss5y_percent, by =main_sectorf) +
+                       s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                       s(gold_area_km2_percapita, by=main_sectorf) +
+                       s(gva_agri_percapita_reais,by=main_sectorf) + 
+                       s(gva_industry_percent, by=main_sectorf) +
+                       s(pop_dens_km2, k=5) +
+                       s(tot_loss5y_percent) +
                        s(school_per1000) + 
-                       s(pg_per1000) + 
+                       s(pg_per1000, k=5) + 
                        s(dist_statecapital_km, by = state_namef) + 
                        s(state_namef, bs="re"), 
                      data = dfgam, 
                      method="REML")
 hist(resid(model_01$gam, type = "deviance"))
-summary(model_01$gam) #r2 96.6. everything significant!
+summary(model_01$gam) #r2 96.2. everything significant!
 appraise(model_01$gam)
 plot(model_01$gam, scale = 0, all.terms = TRUE)
 
@@ -55,13 +56,14 @@ ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B",
              maxIter = 99, msMaxIter = 99, keepData = TRUE)
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year +
                        pres_groupf + 
-                       s(year, by = state_namef, k=5, m=1, bs="tp") +
-                       s(gva_agri_percapita_reais) + 
-                       s(gva_industry_percent, by =main_sectorf) +
-                       s(pop_dens_km2) +
-                       s(tot_loss5y_percent, by =main_sectorf) +
+                       s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                       s(gold_area_km2_percapita, by=main_sectorf) +
+                       s(gva_agri_percapita_reais,by=main_sectorf) + 
+                       s(gva_industry_percent, by=main_sectorf) +
+                       s(pop_dens_km2, k=5) +
+                       s(tot_loss5y_percent) +
                        s(school_per1000) + 
-                       s(pg_per1000) + 
+                       s(pg_per1000, k=5) + 
                        s(dist_statecapital_km, by = state_namef) + 
                        s(state_namef, bs="re"), 
                      correlation = corARMA(form = ~ year|muni_factor, p = 1), 
