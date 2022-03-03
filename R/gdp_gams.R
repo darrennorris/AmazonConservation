@@ -8,10 +8,10 @@ library(gratia)
 library(sf)
 
 #extra memory to speed up models, pairs panel, gam.check etc
-memory.limit(30000)
+memory.limit(50000)
 
 #Uses dfgam from "gdp_analysis.R"
-dfgam <- readRDS("dfgam.rds") #13710 obs. 39 vars
+dfgam <- readRDS("dfgam.rds") #13710 obs. 40 vars
 #plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
 # 4956340 km2
@@ -28,47 +28,85 @@ dfgam %>%
   select(all_of(pairs_vars)) %>%
   rename(GDP = gdp_percapita_reais, gold = gold_area_km2_percapita, 
          agri = gva_agri_percapita_reais, industry = gva_industry_percent, 
+         indigenous_land = indigenous_area_percent,
          pop = pop_dens_km2, forest_loss = tot_loss5y_percent, 
          schools = school_per1000, post_grad = pg_per1000) %>%
 psych::pairs.panels()
 
 #GAMM models...
+#Basic
+model_01_null <- gamm(log(gdp_percapita_reais) ~ 
+                   s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                   s(dist_statecapital_km, by = state_namef) + 
+                   s(state_namef, bs="re"), 
+                 data = dfgam, 
+                 method="REML")
+hist(resid(model_01_null$gam, type = "deviance"))
+summary(model_01_null$gam) #r2 = 0.75
+
+#Null with correlation structure
+ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
+             maxIter = 99, msMaxIter = 99, keepData = TRUE)
+model_01_ar1_null <- gamm(log(gdp_percapita_reais) ~ 
+                        s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                        s(dist_statecapital_km, by = state_namef) + 
+                        s(state_namef, bs="re"), 
+                        correlation = corARMA(form = ~ year|muni_factor, p = 1),
+                      data = dfgam, 
+                      method="REML", 
+                      control = ctrl)
+saveRDS(model_01_ar1_null, "model_01_ar1_null.rds")
+model_01_ar1_null <- readRDS("model_01_ar1_null.rds")
+hist(resid(model_01_ar1_null$gam, type = "deviance"))
+summary(model_01_ar1_null$gam) #0.744
+
+#Develop 
+model_01 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
+                        s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                   s(gva_agri_percapita_reais) + 
+                   s(indigenous_area_percent, k=4) + 
+                   s(gold_area_km2_percapita, k=4) +
+                   s(tot_loss5y_percent) + 
+                   s(pop_dens_km2, k=4) + 
+                   s(school_per1000) + 
+                        s(dist_statecapital_km, by = state_namef) + 
+                        s(state_namef, bs="re"), 
+                      data = dfgam, 
+                      method="REML")
+hist(resid(model_01$gam, type = "deviance")) #Much improved.
+summary(model_01$gam) #0.928
+plot(model_01$gam, scale = 0, all.terms = TRUE)
+
+#Full model
 #without AR
-model_01 <- gamm(log(gdp_percapita_reais) ~ year +
-                       pres_groupf + 
-                       s(year, by = state_namef, k=5, m=1, bs="tp") + 
-                       s(gold_area_km2_percapita, by=main_sectorf) +
-                       s(gva_agri_percapita_reais,by=main_sectorf) + 
-                       s(gva_industry_percent, by=main_sectorf) +
-                       s(pop_dens_km2, k=5) +
-                       s(tot_loss5y_percent) +
-                       s(school_per1000) + 
-                       s(pg_per1000, k=5) + 
-                       s(dist_statecapital_km, by = state_namef) + 
-                       s(state_namef, bs="re"), 
+model_01 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
+                   s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                   s(gva_agri_percapita_reais) + 
+                   s(indigenous_area_percent, k=4) + 
+                   s(gold_area_km2_percapita, k=4) +
+                   s(tot_loss5y_percent) + 
+                   s(pop_dens_km2, k=4) + 
+                   s(school_per1000) + 
+                   s(dist_statecapital_km, by = state_namef) + 
+                   s(state_namef, bs="re"),
                      data = dfgam, 
                      method="REML")
 saveRDS(model_01, "model_01.rds")
 model_01 <- readRDS("model_01.rds")
 hist(resid(model_01$gam, type = "deviance"))
-summary(model_01$gam) #r2 96.2. everything significant!
-appraise(model_01$gam)
+summary(model_01$gam) #r2 93. everything significant!
+appraise(model_01$gam) #problems with deviance residual > 1.5
 plot(model_01$gam, scale = 0, all.terms = TRUE)
 
-
-#with AR worked without admin
-ctrl <- list(niterEM = 0, msVerbose = TRUE, optimMethod="L-BFGS-B", 
-             maxIter = 99, msMaxIter = 99, keepData = TRUE)
-model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year +
-                       pres_groupf + 
+#with AR working
+model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
                        s(year, by = state_namef, k=5, m=1, bs="tp") + 
-                       s(gold_area_km2_percapita, by=main_sectorf) +
-                       s(gva_agri_percapita_reais,by=main_sectorf) + 
-                       s(gva_industry_percent, by=main_sectorf) +
-                       s(pop_dens_km2, k=5) +
-                       s(tot_loss5y_percent) +
+                       s(gva_agri_percapita_reais) + 
+                       s(indigenous_area_percent, k=4) + 
+                       s(gold_area_km2_percapita, k=4) +
+                       s(tot_loss5y_percent) + 
+                       s(pop_dens_km2, k=4) + 
                        s(school_per1000) + 
-                       s(pg_per1000, k=5) + 
                        s(dist_statecapital_km, by = state_namef) + 
                        s(state_namef, bs="re"), 
                      correlation = corARMA(form = ~ year|muni_factor, p = 1), 
@@ -77,8 +115,9 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ year +
                      control = ctrl)
 saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
+hist(resid(model_01_ar1$gam, type = "deviance"))
 summary(model_01_ar1$lme) #check correlation structure
-summary(model_01_ar1$gam) #r2 = 0.934
+summary(model_01_ar1$gam) #r2 = 0.874
 
 #gam.check(model_01_ar1$gam) #problem with residual > 1
 appraise(model_01_ar1$gam)
@@ -279,3 +318,37 @@ myvar$bins.lim <- myvar$bins.lim/1000
 myvar$max.dist <- myvar$max.dist/1000
 myvar$uvec <- myvar$uvec/1000
 plot(myvar, var.lines=TRUE, envelope.obj = mye, xlab = "distance (km)")
+
+#Not used
+#testing tweedie
+library(statmod)
+library(tweedie)
+myesp <- sample(log(dfgam$gdp_percapita_reais), size=1000)
+tweedie_01 <- tweedie.profile(myesp ~1)
+tweedie_01$xi.max
+
+#Simple Tweedie. #cant use select=TRUE
+
+model_01_tw <- gamm(log(gdp_percapita_reais) ~
+                      s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                      s(dist_statecapital_km, by = state_namef) + 
+                      s(state_namef, bs="re"), 
+                    data = dfgam, 
+                    method="REML", 
+                    family = Tweedie(p=1.9))
+hist(resid(model_01_tw$gam, type = "deviance"))
+summary(model_01_tw$gam)
+
+ctrlPQL <- list(keepData = TRUE)
+model_01_tw_ar1 <- gamm(log(gdp_percapita_reais) ~
+                          s(year, by = state_namef, k=5, m=1, bs="tp") + 
+                          s(dist_statecapital_km, by = state_namef) + 
+                          s(state_namef, bs="re"), 
+                        correlation = corARMA(form = ~ year|muni_factor, p = 1),
+                        data = dfgam, 
+                        method="REML", 
+                        family = Tweedie(p=1.9), 
+                        niterPQL = 99,
+                        control = ctrlPQL)
+hist(resid(model_01_tw_ar1$gam, type = "deviance"))
+summary(model_01_tw_ar1$gam)
