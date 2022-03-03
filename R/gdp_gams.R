@@ -12,6 +12,9 @@ memory.limit(50000)
 
 #Uses dfgam from "gdp_analysis.R"
 dfgam <- readRDS("dfgam.rds") #13710 obs. 40 vars
+dfgam %>% 
+  mutate(flag_gold = factor(if_else(gold_area_km2_percapita >0,1,0))) -> dfgam
+
 #plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
 # 4956340 km2
@@ -63,8 +66,8 @@ summary(model_01_ar1_null$gam) #0.744
 #Develop 
 model_01 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
                         s(year, by = state_namef, k=5, m=1, bs="tp") + 
-                   s(gva_agri_percapita_reais) + 
-                   s(indigenous_area_percent, k=4) + 
+                   s(gva_agri_percapita_reais, by = flag_gold) + 
+                   s(indigenous_area_percent, k=4, by = flag_gold) + 
                    s(gold_area_km2_percapita, k=4) +
                    s(tot_loss5y_percent) + 
                    s(pop_dens_km2, k=4) + 
@@ -83,7 +86,7 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
                    s(year, by = state_namef, k=5, m=1, bs="tp") + 
                    s(gva_agri_percapita_reais) + 
                    s(indigenous_area_percent, k=4) + 
-                   s(gold_area_km2_percapita, k=4) +
+                   s(gold_area_km2_percapita, k=4, by = flag_gold) +
                    s(tot_loss5y_percent) + 
                    s(pop_dens_km2, k=4) + 
                    s(school_per1000) + 
@@ -103,7 +106,7 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
                        s(year, by = state_namef, k=5, m=1, bs="tp") + 
                        s(gva_agri_percapita_reais) + 
                        s(indigenous_area_percent, k=4) + 
-                       s(gold_area_km2_percapita, k=4) +
+                       s(gold_area_km2_percapita, k=4, by = flag_gold) +
                        s(tot_loss5y_percent) + 
                        s(pop_dens_km2, k=4) + 
                        s(school_per1000) + 
