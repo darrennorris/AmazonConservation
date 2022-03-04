@@ -11,9 +11,9 @@ library(sf)
 memory.limit(50000)
 
 #Uses dfgam from "gdp_analysis.R"
-dfgam <- readRDS("dfgam.rds") #13710 obs. 40 vars
+dfgam <- readRDS("dfgam.rds") #13710 obs. 47 vars
 dfgam %>% 
-  mutate(flag_gold = factor(if_else(gold_area_km2_percapita >0,1,0))) -> dfgam
+  mutate(flag_gold = factor(if_else(mine_area_km2_gold_percapita >0,1,0))) -> dfgam
 
 #plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
@@ -23,13 +23,13 @@ dfgam %>%
 
 #correlations with time varying covariates
 #Pairs panel with human readable names
-pairs_vars <- c('gdp_percapita_reais', 'gold_area_km2_percapita',
+pairs_vars <- c('gdp_percapita_reais', 'mine_area_km2_gold_percapita',
                'gva_agri_percapita_reais', 'gva_industry_percent', 
                'pop_dens_km2', 'tot_loss5y_percent', 
                'school_per1000', 'pg_per1000')
 dfgam %>%
   select(all_of(pairs_vars)) %>%
-  rename(GDP = gdp_percapita_reais, gold = gold_area_km2_percapita, 
+  rename(GDP = gdp_percapita_reais, gold = mine_area_km2_gold_percapita, 
          agri = gva_agri_percapita_reais, industry = gva_industry_percent, 
          indigenous_land = indigenous_area_percent,
          pop = pop_dens_km2, forest_loss = tot_loss5y_percent, 
@@ -68,7 +68,11 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
                         s(year, by = state_namef, k=5, m=1, bs="tp") + 
                    s(gva_agri_percapita_reais, by = flag_gold) + 
                    s(indigenous_area_percent, k=4, by = flag_gold) + 
-                   s(gold_area_km2_percapita, k=4) +
+                   #s(mine_area_km2_gold_percapita, k=4) + 
+                   #s(mine_area_km2_metal_percapita, k=5) + 
+                   s(process_gold_p1000, k=4) + 
+                   s(process_metal_p1000, k=4) + 
+                   s(process_construction_p1000, k=4) +
                    s(tot_loss5y_percent) + 
                    s(pop_dens_km2, k=4) + 
                    s(school_per1000) + 
@@ -77,7 +81,7 @@ model_01 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
                       data = dfgam, 
                       method="REML")
 hist(resid(model_01$gam, type = "deviance")) #Much improved.
-summary(model_01$gam) #0.928
+summary(model_01$gam) #0.931
 plot(model_01$gam, scale = 0, all.terms = TRUE)
 
 #Full model
@@ -104,9 +108,11 @@ plot(model_01$gam, scale = 0, all.terms = TRUE)
 #with AR working
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ main_sectorf +
                        s(year, by = state_namef, k=5, m=1, bs="tp") + 
-                       s(gva_agri_percapita_reais) + 
-                       s(indigenous_area_percent, k=4) + 
-                       s(gold_area_km2_percapita, k=4, by = flag_gold) +
+                       s(gva_agri_percapita_reais, by = flag_gold) + 
+                       s(indigenous_area_percent, k=4, by = flag_gold) + 
+                       s(process_gold_p1000, k=4) + 
+                       s(process_metal_p1000, k=4) + 
+                       s(process_construction_p1000, k=4) +
                        s(tot_loss5y_percent) + 
                        s(pop_dens_km2, k=4) + 
                        s(school_per1000) + 
@@ -120,7 +126,7 @@ saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 hist(resid(model_01_ar1$gam, type = "deviance"))
 summary(model_01_ar1$lme) #check correlation structure
-summary(model_01_ar1$gam) #r2 = 0.874
+summary(model_01_ar1$gam) #r2 = 0.874 hist wrse with construction and metal....
 
 #gam.check(model_01_ar1$gam) #problem with residual > 1
 appraise(model_01_ar1$gam)
