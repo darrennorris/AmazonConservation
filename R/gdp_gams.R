@@ -105,7 +105,7 @@ plot(model_01$gam, scale = 0, all.terms = TRUE)
 #with AR working
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ dominant_groupsf2 +
                        #s(year, by = state_namef, k=5) + 
-                       s(gva_agri_percapita_reais, by = flag_gold) + 
+                       s(gva_agri_percapita_reais, by = state_namef) + 
                        s(indigenous_area_percent, k=4) + 
                        s(process_gold_p1000, k=4) + 
                        s(process_metal_p1000, k=4) + 
