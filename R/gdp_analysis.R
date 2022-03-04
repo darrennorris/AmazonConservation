@@ -126,7 +126,11 @@ dfgam %>%
                                      TRUE ~ NA_character_ 
   ) 
   ) -> dfgam
-
+dfgam %>% 
+  mutate(dominant_groupsf2 = 
+           factor(ifelse(dfgam$dominant_groups %in% c("1", "2"), 
+                         "less", "more"))) -> dfgam
+  
 dfgam$muni_namef <- as.factor(dfgam$muni_name) 
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
@@ -199,13 +203,27 @@ dfgam %>%
             gdp_max = max(gdp_percapita_reais)) %>% 
   arrange(desc(gdp_max))
 
+dfgam %>% 
+  ggplot(aes(x=year, y = gdp_percapita_reais, colour = dominant_groups)) + 
+  geom_point() + 
+  stat_smooth(method = "lm") + 
+  scale_y_continuous(labels = scales::unit_format(unit = "k", 
+                                                  scale = 1e-3)) + 
+  scale_color_viridis_d()
+
+dfgam %>% 
+  ggplot(aes(x=year, y = log(gdp_percapita_reais), 
+             colour = dominant_groups)) + 
+  geom_jitter(width=0.2, height = 0, size = 0.7) + 
+  stat_smooth(method = "gam", se = FALSE) + 
+  scale_color_viridis_d()
 
 #2019 summaries. reference levels .......
 df_muni_year %>% 
   filter(!is.na(tot_forest_cover_2019_percent), year == "2019") %>% 
   ggplot(aes(x=tot_forest_cover_2019_percent, y=salary_mean_reais/3.946)) + 
   geom_point() + 
-  stat_smooth(method="gam") + 
+  stat_smooth(method="gam", se = FALSE) + 
   scale_y_continuous(lim=c(0,1100), 
                      breaks = c(0,200, 400, 600, 800, 1000)) + 
   labs(title= "(A)", 
