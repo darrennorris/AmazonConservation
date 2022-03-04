@@ -76,7 +76,10 @@ var_response <- c("gdp_percapita_reais")
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecapital_km", 
                       "flag_urban", "indigenous_area_percent")
 var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", 
-                  "gold_area_km2_percapita",
+                  "mine_area_km2_construction_percapita", "mine_area_km2_gold_percapita",        
+                  "mine_area_km2_metal_percapita",  "mine_area_km2_calcium_percapita",     
+                  "process_construction_p1000", "process_gold_p1000",                  
+                  "process_metal_p1000",  "process_calcium_p1000",
                   "gva_agri_percapita_reais", "gva_industry_percent", 
                   "main_sector",
                   "school_per1000", "superior_course_per1000", "pg_per1000", 

@@ -42,7 +42,32 @@ sf_bla_mine <-  st_make_valid(st_read("sf_bla_min.shp",
                                       options = "ENCODING=WINDOWS-1252"))
 Selvalid <- which(st_is_valid(sf_bla_mine)) #3460
 #rm("sf_br_min")
-
+#Group important substrates
+mine_gold <- c("MINÉRIO DE OURO", "OURO", "OURO NATIVO")
+mine_metal <- c("COBRE", "MINÉRIO DE COBRE", 
+                "CROMO", "MINÉRIO DE PLATINA",
+                "MINÉRIO DE ESTANHO", "ESTANHO", "CASSITERITA",
+                "MINÉRIO DE FERRO", "FERRO", 
+                "MINÉRIO DE MANGANÊS", "MANGANÊS", 
+                "MINÉRIO DE NIÓBIO", "NIÓBIO", 
+                "MINÉRIO DE NÍQUEL", "NÍQUEL", 
+                "MINÉRIO DE TÂNTALO", "TÂNTALO", 
+                "ALUMÍNIO", "BAUXITA"
+)
+mine_construction <- c("ARGILA", "ARGILA P/CER. VERMELH", 
+                       "ARGILA REFRATÁRIA",
+                       "CASCALHO", "SEIXOS", 
+                       "GRANITO", "GRANITO P/ BRITA", 
+                       "AREIA", "SAIBRO")
+mine_calcium <- c("CALCÁRIO", "CALCÁRIO CALCÍTICO", "CALCÁRIO DOLOMÍTICO")
+#add groups
+sf_bla_mine %>% 
+  mutate(mine_group = case_when(SUBS %in% mine_gold~"gold", 
+                   SUBS %in% mine_metal~"metal", 
+                   SUBS %in% mine_construction ~"construction", 
+                   SUBS %in% mine_calcium ~"calcium", 
+                   TRUE ~ NA_character_)) -> sf_bla_mine
+table(sf_bla_mine$mine_group)
 data.frame(sf_bla_mine) %>% select(!geometry) %>% 
   ggplot(aes(x=ANO)) + 
   geom_bar(aes(fill = FASE)) + 
@@ -61,7 +86,19 @@ data.frame(sf_bla_mine) %>% select(!geometry) %>%
 data.frame(sf_bla_mine) %>% 
   filter(SUBS %in% c("MINÉRIO DE OURO", "OURO", "OURO NATIVO")) %>%
   group_by(UF) %>% 
-  summarise(count_process = length(unique(PROCESSO)))
+  summarise(count_state = length(unique(NM_UF)))
+
+data.frame(sf_bla_mine) %>%
+  filter(!is.na(mine_group)) %>%
+  mutate(year_final = 2019) %>% 
+  group_by(mine_group, PROCESSO, AREA_HA) %>% 
+  mutate(year = list(seq(from = ANO, to = year_final))) %>% 
+  unnest(year) %>% 
+  filter(year >= 2002) %>%
+  select(mine_group, PROCESSO, AREA_HA, ANO, year) %>% 
+  group_by(mine_group, year) %>% 
+  summarise(count_process = length(unique(PROCESSO)), 
+            area_km2 = sum(as.numeric(AREA_HA)))
 
 #Load IBGE polygons
 #Municipal polygons
@@ -144,26 +181,104 @@ if(nrow(dftmp)>0){
 df_goldmine_muni
 }
 
-df_goldmines <- plyr::ddply(dfstates, .(bla_state_siglas), 
-                            .fun = get_goldmines)
+#df_goldmines <- plyr::ddply(dfstates, .(bla_state_siglas), 
+#                            .fun = get_goldmines)
+
+get_mines <- function(x) {
+  state_sigla <- x$bla_state_siglas
+  # Two step intersect as laptop has not so much memory!
+  #1 intersect with state polygon
+  sf_mine <- st_intersection(sf_bla_mine, 
+                                sf_ninestate %>% 
+                                  filter(SIGLA_UF==state_sigla))
+  #2 intersect with municipality polygons
+  sf_mine_muni <- st_intersection(sf_mine, 
+                                     sf_ninestate_muni %>% 
+                                       filter(SIGLA_UF==state_sigla))
+  
+  # Projection for area calculations 
+  # South_America_Albers_Equal_Area_Conic
+  # Consistent with values provided by IBGE 2020.
+  st_transform(sf_mine_muni, 
+               "+proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60 +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs") %>%
+    st_area() -> sf_mine_muni$mine_area_m2 
+  sf_mine_muni %>%
+    mutate(mine_area_km2 = set_units(mine_area_m2, km^2)) -> sf_mine_muni
+  
+  # For each mining polygon identify municipality and
+  # the area covered in municipality  
+  data.frame(sf_mine_muni) %>% 
+    select(!geometry) %>% 
+    filter(SUBS %in% c(mine_gold, mine_metal, 
+                       mine_construction, mine_calcium), 
+           ANO < 2020) -> dftmp
+  
+  #export summaries
+  if(nrow(dftmp)>0){
+    dftmp %>% 
+      filter(!is.na(mine_group)) %>%
+      mutate(year_final = 2019) %>% 
+      group_by(NM_UF, NM_MUN, AREA_KM2, 
+               mine_group, PROCESSO, AREA_HA) %>% 
+      mutate(year = list(seq(from = ANO, to = year_final))) %>% 
+      unnest(year) %>% 
+      filter(year >= 2002) %>%
+      select(NM_UF, NM_MUN, AREA_KM2, mine_group,  
+             PROCESSO, AREA_HA, ANO, year, mine_area_km2) %>% 
+      group_by(NM_UF, NM_MUN, AREA_KM2, mine_group,  year) %>% 
+      summarise(count_process = length(unique(PROCESSO)), 
+                mine_area_km2 = sum(as.numeric(mine_area_km2))) %>% 
+      ungroup() %>% data.frame() -> df_mine_muni
+  }else{
+    df_mine_muni <- data.frame(NM_UF = x$bla_state_names, 
+                                   NM_MUN = NA, 
+                                   AREA_KM2 = NA, 
+                               mine_group = NA,
+                                   year = NA, 
+                                   count_process = 0, 
+                                   mine_area_km2 = 0)
+  }
+  df_mine_muni
+}
+
+df_mines <- plyr::ddply(dfstates, .(bla_state_siglas), 
+                        .fun = get_mines)
+table(df_mines$year)
+df_mines %>% 
+  pivot_wider(id_cols = c(NM_UF, NM_MUN, year), 
+              names_from = mine_group, 
+              values_from = c(count_process, mine_area_km2), 
+              values_fill = 0) -> df_mines_wide
+
 #Add population and export
 df_muni_year <- read_excel("data//bla_municipalities.xlsx", 
                            na = c("", "NA"),
                            sheet = "municipality_annual",
                            .name_repair = "universal")
-
+names(df_mines_wide)
 df_muni_year %>% left_join(
-  df_goldmines %>% 
-    select(NM_UF, NM_MUN, year, count_gold_process, gold_area_km2), 
-  by = c("state_name" = "NM_UF", muni_name = "NM_MUN", "year" = "year")
-) %>% 
-  mutate(count_gold_process = replace_na(count_gold_process, 0), 
-         gold_area_km2 = replace_na(gold_area_km2, 0)) %>%
-  mutate(gold_area_km2_percapita = gold_area_km2 / tot_pop) %>% 
-  select(state_ref, muni_name,year,count_gold_process, 
-         gold_area_km2, gold_area_km2_percapita) %>%
+  df_mines_wide,
+  by = c("state_name" = "NM_UF", muni_name = "NM_MUN", "year" = "year")) %>%
+  mutate(count_process_construction = replace_na(count_process_construction, 0), 
+         count_process_gold = replace_na(count_process_gold, 0), 
+         count_process_metal = replace_na(count_process_metal, 0), 
+         count_process_calcium = replace_na(count_process_calcium, 0), 
+         mine_area_km2_construction = replace_na(mine_area_km2_construction, 0), 
+         mine_area_km2_gold = replace_na(mine_area_km2_gold, 0), 
+         mine_area_km2_metal = replace_na(mine_area_km2_metal, 0), 
+         mine_area_km2_calcium = replace_na(mine_area_km2_calcium, 0)
+         ) %>%
+  mutate(mine_area_km2_construction_percapita = mine_area_km2_construction / tot_pop, 
+         mine_area_km2_gold_percapita = mine_area_km2_gold / tot_pop, 
+         mine_area_km2_metal_percapita = mine_area_km2_metal / tot_pop,
+         mine_area_km2_calcium_percapita = mine_area_km2_calcium / tot_pop, 
+         process_construction_p1000 = (count_process_construction/tot_pop) * 1000, 
+         process_gold_p1000 = (count_process_gold/tot_pop) * 1000,
+         process_metal_p1000 = (count_process_metal/tot_pop) * 1000,
+         process_calcium_p1000 = (count_process_calcium/tot_pop) * 1000
+  ) %>%
   arrange(state_ref, muni_name, year) %>% 
-  write.csv("muni_fixed_goldmine_long.csv", row.names = FALSE)
+  write.csv("muni_fixed_mine_long.csv", row.names = FALSE)
 
 
 #Mining
