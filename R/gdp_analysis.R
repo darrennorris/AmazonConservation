@@ -81,7 +81,7 @@ var_timevary <- c("year","pop_dens_km2", "tot_loss_percent",
                   "process_construction_p1000", "process_gold_p1000",                  
                   "process_metal_p1000",  "process_calcium_p1000",
                   "gva_agri_percapita_reais", "gva_industry_percent", 
-                  "main_sector",
+                  "main_sector", "dominant_sectors",
                   "school_per1000", "superior_course_per1000", "pg_per1000", 
                   "president", "pres_group")
 var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per", 
@@ -104,6 +104,29 @@ df_muni_year %>%
          adate = as.Date(paste(year,"-01", "-01", sep="")), 
          format = c("%Y-%m-%d")) -> dfgam
 which(is.na(dfgam)[,3]) #0 no nulls
+
+#reclassify based on GDP levels
+dfgam %>% 
+  mutate(dominant_groups = case_when(dominant_sectors %in% 
+                                       c("admin_agri", "admin_services", 
+                                         "admin_industry") ~ "1", 
+                                     dominant_sectors %in% c("agri_admin", 
+                                                             "services_admin", 
+                                                             "admin") ~"2", 
+                                     dominant_sectors %in% c("industry_admin", 
+                                                             "industry_agri", 
+                                                             "services_industry", 
+                                                             "industry_services") ~"3", 
+                                     dominant_sectors %in% c("agri_industry", 
+                                                             "services") ~"4", 
+                                     dominant_sectors %in% c("agri", 
+                                                             "services_agri")~"5", 
+                                     dominant_sectors %in% c("agri_services", 
+                                                             "industry")~"6", 
+                                     TRUE ~ NA_character_ 
+  ) 
+  ) -> dfgam
+
 dfgam$muni_namef <- as.factor(dfgam$muni_name) 
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
@@ -113,6 +136,8 @@ dfgam$muni_factor <- paste(dfgam$state_name, dfgam$muni_name, sep = "_")
 dfgam$muni_factor <- as.factor(dfgam$muni_factor)
 levels(dfgam$pres_groupf)#left wing Lula is the reference level 
 dfgam$main_sectorf <- as.factor(dfgam$main_sector)
+dfgam$dominant_sectorsf <- as.factor(dfgam$dominant_sectors) 
+dfgam$dominant_groupsf <- as.factor(dfgam$dominant_groups)
 saveRDS(dfgam, "dfgam.rds")
 dfgam <- readRDS("dfgam.rds")
 
@@ -125,6 +150,54 @@ dfgam[which(dfgam$gdp_percapita_reais == min(dfgam$gdp_percapita_reais)),
 dfgam %>% 
   filter(state_name %in% c("Amapá", "Pará", 
                            "Maranhão")) -> dfgam_test
+
+# dominant sectors
+dfgam %>% 
+  group_by(dominant_sectors) %>% 
+  summarise(count_obs = n(), 
+            count_state = length(unique(state_name)), 
+            count_muni = length(unique(muni_factor)), 
+            gdp_median = median(gdp_percapita_reais), 
+            gdp_q95 =  quantile(gdp_percapita_reais, probs = 0.95), 
+            gdp_max = max(gdp_percapita_reais)) %>% 
+  arrange(desc(gdp_max))
+
+dfgam %>% 
+  ggplot(aes(x=fct_reorder(dominant_sectors, gdp_percapita_reais, max), 
+             y = gdp_percapita_reais)) +
+  geom_violin() + 
+  scale_y_continuous(labels = scales::unit_format(unit = "k", 
+                                                  scale = 1e-3)) + 
+  coord_flip() +
+  labs(x="dominant sectors", 
+       y = "GDP percapita (Reais)") +
+  theme(
+    legend.position = "none"
+  )
+
+#reclassify based on GDP levels
+dfgam %>% 
+  ggplot(aes(x=dominant_groups, 
+             y = gdp_percapita_reais)) +
+  geom_violin() + 
+  scale_y_continuous(labels = scales::unit_format(unit = "k", 
+                                                  scale = 1e-3)) + 
+  coord_flip() +
+  labs(x="dominant groups", 
+       y = "GDP percapita (Reais)") +
+  theme(
+    legend.position = "none"
+  )
+
+dfgam %>% 
+  group_by(dominant_groups) %>% 
+  summarise(count_obs = n(), 
+            count_state = length(unique(state_name)), 
+            count_muni = length(unique(muni_factor)), 
+            gdp_median = median(gdp_percapita_reais), 
+            gdp_q95 =  quantile(gdp_percapita_reais, probs = 0.95), 
+            gdp_max = max(gdp_percapita_reais)) %>% 
+  arrange(desc(gdp_max))
 
 
 #2019 summaries. reference levels .......
