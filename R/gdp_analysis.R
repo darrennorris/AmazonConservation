@@ -168,13 +168,27 @@ dfgam %>%
 
 dfgam %>% 
   ggplot(aes(x=fct_reorder(dominant_sectors, gdp_percapita_reais, max), 
-             y = gdp_percapita_reais)) +
+             y = log(gdp_percapita_reais))) + 
+  geom_point() +
   geom_violin() + 
   scale_y_continuous(labels = scales::unit_format(unit = "k", 
                                                   scale = 1e-3)) + 
   coord_flip() +
   labs(x="dominant sectors", 
        y = "GDP percapita (Reais)") +
+  theme(
+    legend.position = "none"
+  )
+
+dfgam %>% 
+  ggplot(aes(x=fct_reorder(dominant_sectors, gdp_percapita_reais, max), 
+             y = log(gdp_percapita_reais))) + 
+  geom_point() +
+  geom_violin(draw_quantiles = 0.5) + 
+  coord_flip() + 
+  facet_wrap(~state_name) +
+  labs(x="dominant sectors", 
+       y = "GDP percapita (Reais, log transform)") +
   theme(
     legend.position = "none"
   )
@@ -194,16 +208,6 @@ dfgam %>%
   )
 
 dfgam %>% 
-  group_by(dominant_groups) %>% 
-  summarise(count_obs = n(), 
-            count_state = length(unique(state_name)), 
-            count_muni = length(unique(muni_factor)), 
-            gdp_median = median(gdp_percapita_reais), 
-            gdp_q95 =  quantile(gdp_percapita_reais, probs = 0.95), 
-            gdp_max = max(gdp_percapita_reais)) %>% 
-  arrange(desc(gdp_max))
-
-dfgam %>% 
   ggplot(aes(x=year, y = gdp_percapita_reais, colour = dominant_groups)) + 
   geom_point() + 
   stat_smooth(method = "lm") + 
@@ -217,6 +221,43 @@ dfgam %>%
   geom_jitter(width=0.2, height = 0, size = 0.7) + 
   stat_smooth(method = "gam", se = FALSE) + 
   scale_color_viridis_d()
+
+dfgam %>% 
+  group_by(dominant_groups) %>% 
+  summarise(count_obs = n(), 
+            count_state = length(unique(state_name)), 
+            count_muni = length(unique(muni_factor)), 
+            gdp_median = median(gdp_percapita_reais), 
+            gdp_q95 =  quantile(gdp_percapita_reais, probs = 0.95), 
+            gdp_max = max(gdp_percapita_reais)) %>% 
+  arrange(desc(gdp_max))
+
+dfgam %>% 
+  group_by(dominant_groupsf2) %>% 
+  summarise(count_obs = n(), 
+            count_state = length(unique(state_name)), 
+            count_muni = length(unique(muni_factor)), 
+            gdp_median = median(gdp_percapita_reais), 
+            gdp_q95 =  quantile(gdp_percapita_reais, probs = 0.95), 
+            gdp_max = max(gdp_percapita_reais)) %>% 
+  arrange(desc(gdp_max))
+
+
+#find which state missing more = Roraima.
+dfgam %>% 
+  filter(dominant_groupsf2 == "more") %>% 
+  group_by(state_name) %>% 
+  summarise(acount = n())
+
+dfgam %>% filter(state_name == "Roraima") %>%
+  group_by(dominant_groups, dominant_sectors) %>% 
+  summarise(count_obs = n(), 
+            count_state = length(unique(state_name)), 
+            count_muni = length(unique(muni_factor)), 
+            gdp_median = median(gdp_percapita_reais), 
+            gdp_q95 =  quantile(gdp_percapita_reais, probs = 0.95), 
+            gdp_max = max(gdp_percapita_reais)) %>% 
+  arrange(desc(gdp_max))
 
 #2019 summaries. reference levels .......
 df_muni_year %>% 

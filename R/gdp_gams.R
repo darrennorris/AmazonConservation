@@ -160,7 +160,7 @@ plot(model_01_ar1$gam, scale = 0, all.terms = TRUE)
 res_gamm_ar1_lme <- resid(model_01_ar1$lme, type = "normalized")
 res_gamm_ar1_gam <- resid(model_01_ar1$gam, type = "deviance")
 hist(res_gamm_ar1_lme) #problem with residual > 10
-hist(res_gamm_ar1_gam) #problem with residual > 1
+hist(res_gamm_ar1_gam) #problem with residual > 2
 df_ar1 <- model_01_ar1$lme$data[,1:15] %>% 
   separate(muni_factor, into = c("state_name", "muni_name"), 
            sep = "_", remove = FALSE)
