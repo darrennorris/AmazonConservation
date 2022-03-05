@@ -102,14 +102,15 @@ summary(model_01$gam) #r2 93. everything significant!
 appraise(model_01$gam) #problems with deviance residual > 1.5
 plot(model_01$gam, scale = 0, all.terms = TRUE)
 
-#with AR working. AR wont converge with re and dominant factors
+#with AR working. AR wont converge with re and dominant factors.
+#Improved quantiles with state as re
 model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ 
                        #dominant_groupsf2 +
                        s(gva_agri_percapita_reais, by = state_namef) + 
                        s(indigenous_area_percent, k=4) + 
                        s(process_gold_p1000, k=4) + 
                        s(process_metal_p1000, k=4) + 
-                       s(tot_loss5y_percent) + 
+                       s(tot_loss5y_percent, by = state_namef) + 
                        s(pop_dens_km2, k=4) + 
                        s(state_namef, bs="re") +
                        s(dist_statecapital_km, by = state_namef) + 
@@ -122,7 +123,7 @@ saveRDS(model_01_ar1, "model_01_ar1.rds")
 model_01_ar1 <- readRDS("model_01_ar1.rds")
 hist(resid(model_01_ar1$gam, type = "deviance")) #histograms good
 summary(model_01_ar1$lme) #check correlation structure
-summary(model_01_ar1$gam) #r2 = 0.65....
+summary(model_01_ar1$gam) #r2 = 0.658....
 
 #gam.check(model_01_ar1$gam) #problem with residual > 1
 appraise(model_01_ar1$gam)
