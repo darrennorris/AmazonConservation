@@ -46,7 +46,7 @@ df_muni_year %>%
   mutate(lag01_gva_agri = lag(gva_agri_percapita_reais, order_by = year), 
          lag01_gdp = lag(gva_agri_percapita_reais, order_by = year)) %>% 
   ungroup() -> df_muni_year
-
+#df_muni_year %>% filter(is.na(dist_statecapital_km)) #0
 #Basic reference vectors
 bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
                      "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
@@ -73,7 +73,8 @@ df_muni %>% filter(!is.na(forest_2019_km2)) %>%
 #https://fromthebottomoftheheap.net/2021/02/02/random-effects-in-gams/
 ## gva and gdp lags do not improve model
 var_response <- c("gdp_percapita_reais")
-var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", "dist_statecapital_km", 
+var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", 
+                      "long", "lat" ,"dist_statecapital_km", 
                       "flag_urban", "indigenous_area_percent")
 var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", 
                   "mine_area_km2_construction_percapita", "mine_area_km2_gold_percapita",        
@@ -88,8 +89,7 @@ var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per",
               "lag04_lossarea_per", "lag05_lossarea_per", "lag06_lossarea_per", 
               "lag07_lossarea_per", "lag08_lossarea_per", "lag09_lossarea_per", 
               "lag10_lossarea_per")
-high_gdp_muni <- c("Vitória do Xingu", 
-                   "Canaã dos Carajás", "Campos de Júlio")
+
 df_muni_year %>% 
   filter(!is.na(tot_loss_percent), !is.na(school_per1000), 
          !is.na(superior_course_per1000), !is.na(pg_per1000), 

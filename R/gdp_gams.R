@@ -20,7 +20,7 @@ library(sf)
 memory.limit(50000)
 
 #Uses dfgam from "gdp_analysis.R"
-dfgam <- readRDS("dfgam.rds") #13710 obs. 52 vars
+dfgam <- readRDS("dfgam.rds") #13710 obs. 53 vars
 #plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
 # 4956340 km2
