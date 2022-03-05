@@ -111,7 +111,7 @@ model_01_ar1 <- gamm(log(gdp_percapita_reais) ~
                        s(process_gold_p1000, k=4) + 
                        s(process_metal_p1000, k=4) + 
                        s(tot_loss5y_percent, by = state_namef) + 
-                       s(pop_dens_km2, k=4) + 
+                       s(pop_dens_km2, by = state_namef, k=4) + 
                        s(state_namef, bs="re") +
                        s(dist_statecapital_km, by = state_namef) + 
                        s(school_per1000), 
