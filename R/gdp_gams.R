@@ -7,6 +7,15 @@ library(timetk)
 library(gratia)
 library(sf)
 
+#guides
+#bam
+#https://jacolienvanrij.com/Tutorials/GAMM.html#model-terms-partial-effects
+#http://jacolienvanrij.com/PupilAnalysis/SupplementaryMaterials-2.html
+#gamm
+#https://petolau.github.io/Analyzing-double-seasonal-time-series-with-GAM-in-R/
+#https://fromthebottomoftheheap.net/2014/05/09/modelling-seasonal-data-with-gam/
+#https://fromthebottomoftheheap.net/2021/02/02/random-effects-in-gams/
+
 #extra memory to speed up models, pairs panel, gam.check etc
 memory.limit(50000)
 
@@ -245,8 +254,8 @@ bla_state_siglas <- c("AC", "AP", "AM", "MA",
                       "MT", "PA", "TO", "RO", "RR")
 dfstates <- data.frame(bla_state_names, bla_state_siglas)
 #Municipal polygons
-ibge_muni <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\analysis\\br_municipios_20200807\\BR_Municipios_2019.shp"
-sf_ninestate_muni <- st_read(ibge_muni) %>% filter(SIGLA_UF %in% bla_state_siglas)
+ibge_muni <- "vector//brazil_ninestate_municipalities//ninestate_muni.shp"
+sf_ninestate_muni <- st_read(ibge_muni)
 
 #Map with polygons
 sf_ninestate_muni %>% left_join(
@@ -273,7 +282,7 @@ df_ar1 %>%
 #Distance matrix from locations of the mayors office
 ##763
 #City points
-ibge_city <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\AmazonConservation\\vector\\brazil_cities\\BR_Localidades_2010_v1.shp"
+ibge_city <- "vector//brazil_cities//BR_Localidades_2010_v1.shp"
 sf_city <- st_read(ibge_city, options = "ENCODING=WINDOWS-1252") %>% 
   filter(NM_CATEGOR == "CIDADE", CD_GEOCODM %in% all_of(sf_ninestate_muni$CD_MUN))
 moji <- data.frame(CD_GEOCODM = "1504752", NM_MUNICIP = "Mojuí dos Campos", 
