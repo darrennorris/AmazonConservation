@@ -102,8 +102,9 @@ summary(model_01$gam) #r2 93. everything significant!
 appraise(model_01$gam) #problems with deviance residual > 1.5
 plot(model_01$gam, scale = 0, all.terms = TRUE)
 
-#with AR working
-model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ dominant_groupsf2 +
+#with AR working. AR wont converge with re and dominant factors
+model_01_ar1 <- gamm(log(gdp_percapita_reais) ~ 
+                       #dominant_groupsf2 +
                        s(gva_agri_percapita_reais, by = state_namef) + 
                        s(indigenous_area_percent, k=4) + 
                        s(process_gold_p1000, k=4) + 
