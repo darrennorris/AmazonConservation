@@ -21,9 +21,6 @@ memory.limit(50000)
 
 #Uses dfgam from "gdp_analysis.R"
 dfgam <- readRDS("dfgam.rds") #13710 obs. 52 vars
-dfgam %>% 
-  mutate(flag_gold = factor(if_else(mine_area_km2_gold_percapita >0,1,0))) -> dfgam
-
 #plot(dfgam$gva_industry_percent, dfgam$gdp_percapita_reais)
 #length(unique(dfgam$muni_factor)) #763 municipalities
 # 4956340 km2

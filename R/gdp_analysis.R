@@ -129,8 +129,9 @@ dfgam %>%
 dfgam %>% 
   mutate(dominant_groupsf2 = 
            factor(ifelse(dfgam$dominant_groups %in% c("1", "2"), 
-                         "less", "more"))) -> dfgam
-  
+                         "less", "more")), 
+         flag_gold = 
+           factor(if_else(mine_area_km2_gold_percapita >0,1,0))) -> dfgam
 dfgam$muni_namef <- as.factor(dfgam$muni_name) 
 dfgam$state_namef <- as.factor(dfgam$state_name)
 dfgam$flag_urbanf <- as.factor(dfgam$flag_urban)
