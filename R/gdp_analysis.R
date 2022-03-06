@@ -146,6 +146,78 @@ dfgam$dominant_groupsf <- as.factor(dfgam$dominant_groups)
 saveRDS(dfgam, "dfgam.rds")
 dfgam <- readRDS("dfgam.rds")
 
+#GDP and forest loss
+dfgam %>% 
+  ggplot(aes(x=tot_loss_percent, y = log(gdp_percapita_reais), 
+             colour= factor(year))) + 
+  geom_point() + 
+  stat_smooth(method="gam") + 
+  scale_color_viridis_d("year") +
+  facet_wrap(~state_name, ncol = 1) + 
+  labs(title = "forest loss", 
+       subtitle = "annual",
+       x= "loss (% of municipality area)", 
+       y = "GDP percapita (Reais, log transformed)") + 
+  theme(legend.position="bottom") + 
+  guides(col = guide_legend(nrow = 4))
+
+#3 year cumulative
+dfgam %>% 
+  ggplot(aes(x=tot_loss3y_percent, y = log(gdp_percapita_reais), 
+             colour= factor(year))) + 
+  geom_point() + 
+  stat_smooth(method="gam") + 
+  scale_color_viridis_d("year") +
+  facet_wrap(~state_name, ncol = 1) + 
+  labs(title = "forest loss", 
+       subtitle = "cumulative 3 year",
+       x= "loss (% of municipality area)", 
+       y = "GDP percapita (Reais, log transformed)") + 
+  theme(legend.position="bottom") + 
+  guides(col = guide_legend(nrow = 4))
+
+#5 year cumulative
+dfgam %>% 
+  ggplot(aes(x=tot_loss5y_percent, y = log(gdp_percapita_reais), 
+             colour= factor(year))) + 
+  geom_point() + 
+  stat_smooth(method="gam") + 
+  scale_color_viridis_d("year") +
+  facet_wrap(~state_name, ncol = 1) + 
+  labs(title = "forest loss", 
+       subtitle = "cumulative 5 year",
+       x= "loss (% of municipality area)", 
+       y = "GDP percapita (Reais, log transformed)") + 
+  theme(legend.position="bottom") + 
+  guides(col = guide_legend(nrow = 4))
+
+#correlations with time varying covariates
+#Pairs panel with human readable names
+pairs_vars <- c('gdp_percapita_reais', 
+                'gva_agri_percapita_reais', 'tot_loss_percent',
+                'tot_loss3y_percent', 'tot_loss5y_percent')
+#untransformed
+dfgam %>%
+  select(all_of(pairs_vars)) %>%
+  rename(GDP = gdp_percapita_reais, 
+         GVA_agri = gva_agri_percapita_reais, 
+         loss_annual = tot_loss_percent,
+         loss_3y = tot_loss3y_percent,
+         loss_5y = tot_loss5y_percent) %>%
+  psych::pairs.panels()
+
+#log transformed
+dfgam %>%
+  select(all_of(pairs_vars)) %>%
+  rename(GDP = gdp_percapita_reais, 
+         GVA_agri = gva_agri_percapita_reais, 
+         loss_annual = tot_loss_percent,
+         loss_3y = tot_loss3y_percent,
+         loss_5y = tot_loss5y_percent) %>% 
+  mutate(GDP_log = log(GDP), GVA_agri_log = log(GVA_agri)) %>% 
+  select(GDP_log, GVA_agri_log, loss_annual, loss_3y, loss_5y) %>%
+  psych::pairs.panels()
+
 #Subset to develop models
 unique(dfgam$state_name)
 dfgam[which(dfgam$gdp_percapita_reais == max(dfgam$gdp_percapita_reais)), 
