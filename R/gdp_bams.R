@@ -13,7 +13,7 @@ library(sf)
 #http://jacolienvanrij.com/PupilAnalysis/SupplementaryMaterials-2.html
 
 #extra memory to speed up models, pairs panel, gam.check etc
-memory.limit(50000)
+memory.limit(80000)
 
 #Uses dfgam from "gdp_analysis.R"
 dfgam <- readRDS("dfgam.rds") #13710 obs. 55 vars
@@ -28,7 +28,7 @@ arrange(muni_factor, year) %>%
 
 #random smooths adjust the trend of a numeric predictor 
 #in a nonlinear way: s(Time, Subject, bs="fs", m=1).
-myctrl <- list(keepData = TRUE)         
+myctrl <- list(keepData = TRUE, trace = TRUE)         
 bam_00 <- bam(log_gdp_percapita_reais~ 
                 #spatial smooth
                 s(long, lat) + 
@@ -37,7 +37,7 @@ bam_00 <- bam(log_gdp_percapita_reais~
                 #random temporal smooth
                 s(year, muni_namef, bs='fs', m=1) + 
                 #time varying covariates
-                s(tot_loss5y_percent, by  = state_namef, select = TRUE) +
+                s(tot_loss5y_percent, by  = state_namef) +
                 s(school_per1000, by  = state_namef) +
                 s(process_gold_p1000) +
                 s(gva_agri_percapita_reais, by  = state_namef), 
