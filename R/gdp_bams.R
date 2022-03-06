@@ -42,7 +42,8 @@ tidy_acf_gdp %>%
   group_by(state_namef) %>% 
   summarise(median_acf = median(ACF),
             min_acf = min(ACF), 
-            max_acf = max(ACF)) #Max 0.893
+            max_acf = max(ACF), 
+            max_pacf = max(PACF)) #Max 0.893
 
 #random smooths adjust the trend of a numeric predictor 
 #in a nonlinear way: s(Time, Subject, bs="fs", m=1).
@@ -63,7 +64,8 @@ bam_000 <- bam(log_gdp_percapita_reais~
                 #time varying covariates
                 s(tot_loss5y_percent) +
                 s(school_per1000) +
-                s(process_gold_p1000) +
+                s(process_gold_p1000) + 
+                 s(gva_industry_percent) +
                 s(gva_agri_percapita_reais), 
               #AR1 residual errors
               rho=0.893, AR.start = dfgam$start_event, 
@@ -76,7 +78,7 @@ saveRDS(bam_000, "bam_000.rds")
 bam_000 <- readRDS("bam_000.rds")
 res_bam_ar1_000 <- resid(bam_000, type = "deviance")
 hist(res_bam_ar1_000) #
-summary(bam_000) #0.635
+summary(bam_000) #0.967
 #appraise(bam_000) # do not use locks process/memory
 plot(bam_000, scale = 0, all.terms = TRUE)
 
@@ -91,10 +93,11 @@ dfgam %>%
   ) -> tidy_acf
 
 tidy_acf %>% 
-  filter(lag==1) %>% 
+  filter(lag==1, ACF > 0) %>% 
   group_by(state_namef) %>% 
   summarise(median_upper = median(.white_noise_upper),
             median_pacf = median(PACF), 
+            quant95_pacf = quantile(PACF, probs = 0.95),
             max_pacf = max(PACF)
             ) # max values all > 0.8
 
