@@ -28,13 +28,39 @@ arrange(muni_factor, year) %>%
 
 #random smooths adjust the trend of a numeric predictor 
 #in a nonlinear way: s(Time, Subject, bs="fs", m=1).
-myctrl <- list(keepData = TRUE, trace = TRUE)         
+myctrl <- list(keepData = TRUE, trace = TRUE)  
+bam_000 <- bam(log_gdp_percapita_reais~ 
+                #spatial smooth
+                s(long, lat) + 
+                #Spatial proximity
+                s(dist_statecapital_km, by = state_namef) +
+                #random temporal smooth. 3.2 GB
+                #s(year, muni_namef, bs='fs', m=1) + 
+                #time varying covariates
+                s(tot_loss5y_percent) +
+                s(school_per1000) +
+                s(process_gold_p1000) +
+                s(gva_agri_percapita_reais), 
+              #AR1 residual errors
+              rho=0.9, AR.start = dfgam$start_event,
+              method = "fREML",
+              discrete = TRUE,
+              data = dfgam, 
+              control = myctrl)   
+res_bam_ar1_000 <- resid(bam_000, type = "deviance")
+hist(res_bam_ar1_000) #
+summary(bam_000) #0.618
+plot(bam_000, scale = 0, all.terms = TRUE)
+saveRDS(bam_000, "bam_000.rds")
+bam_000 <- readRDS("bam_000.rds")
+
+#residals not great for below
 bam_00 <- bam(log_gdp_percapita_reais~ 
                 #spatial smooth
                 s(long, lat) + 
                 #Spatial proximity
                 s(dist_statecapital_km, by = state_namef) +
-                #random temporal smooth
+                #random temporal smooth. 3.2 GB
                 s(year, muni_namef, bs='fs', m=1) + 
                 #time varying covariates
                 s(tot_loss5y_percent, by  = state_namef) +
