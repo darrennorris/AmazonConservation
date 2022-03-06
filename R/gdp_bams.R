@@ -48,13 +48,18 @@ tidy_acf_gdp %>%
 #in a nonlinear way: s(Time, Subject, bs="fs", m=1).
 myctrl <- list(keepData = TRUE, trace = TRUE)  
 bam_000 <- bam(log_gdp_percapita_reais~ 
-                #spatial smooth
+                #Spatial smooth
                 s(long, lat) + 
-                #Spatial proximity
-                s(dist_statecapital_km, by = state_namef) +
-                #random temporal smooth. 3.2 GB
+                #proximity
+                s(dist_statecapital_km, by = state_namef) + 
+                 #Time
+                 s(year, by = state_namef) +
+                 s(yearf, bs = "re") +
+                #Random 
+                 #temporal smooth. 3.2 GB
                 #s(year, muni_namef, bs='fs', m=1) + 
                  s(state_namef, bs="re") + 
+                 s(muni_factor, bs="re") + 
                 #time varying covariates
                 s(tot_loss5y_percent) +
                 s(school_per1000) +
@@ -71,37 +76,11 @@ saveRDS(bam_000, "bam_000.rds")
 bam_000 <- readRDS("bam_000.rds")
 res_bam_ar1_000 <- resid(bam_000, type = "deviance")
 hist(res_bam_ar1_000) #
-summary(bam_000) #0.637
-appraise(bam_000)
+summary(bam_000) #0.635
+#appraise(bam_000) # do not use locks process/memory
 plot(bam_000, scale = 0, all.terms = TRUE)
 
-
-#residals not great for below
-bam_00 <- bam(log_gdp_percapita_reais~ 
-                #spatial smooth
-                s(long, lat) + 
-                #Spatial proximity
-                s(dist_statecapital_km, by = state_namef) +
-                #random temporal smooth. 3.2 GB
-                s(year, muni_namef, bs='fs', m=1) + 
-                #time varying covariates
-                s(tot_loss5y_percent, by  = state_namef) +
-                s(school_per1000, by  = state_namef) +
-                s(process_gold_p1000) +
-                s(gva_agri_percapita_reais, by  = state_namef), 
-              #AR1 residual errors
-              rho=0.9, AR.start = dfgam$start_event,
-              method = "fREML",
-              discrete = TRUE,
-              data = dfgam, 
-              control = myctrl)         
-hist(resid(bam_00, type = "deviance")) #
-summary(bam_00) #0.618
-plot(bam_00, scale = 0, all.terms = TRUE)
-saveRDS(bam_00, "bam_00.rds")
-bam_00 <- readRDS("bam_00.rds")
-
-dfgam$res_bam_ar000 <- resid(bam_000, type = "deviance")
+dfgam$res_bam_ar000 <- res_bam_ar1_000
 #Temporal autocorrelation
 dfgam %>%
   group_by(state_namef, dist_statecapital_km) %>%
@@ -110,6 +89,14 @@ dfgam %>%
     .value = res_bam_ar000, 
     .lags = 11
   ) -> tidy_acf
+
+tidy_acf %>% 
+  filter(lag==1) %>% 
+  group_by(state_namef) %>% 
+  summarise(median_upper = median(.white_noise_upper),
+            median_pacf = median(PACF), 
+            max_pacf = max(PACF)
+            ) # max values all > 0.8
 
 #export as .png  250 * 1000
 tidy_acf %>% 
@@ -232,6 +219,31 @@ myvar$uvec <- myvar$uvec/1000
 plot(myvar, var.lines=TRUE, envelope.obj = mye, xlab = "distance (km)")
 
 #Below nnotes and testing
+#residals not great for below
+bam_00 <- bam(log_gdp_percapita_reais~ 
+                #spatial smooth
+                s(long, lat) + 
+                #Spatial proximity
+                s(dist_statecapital_km, by = state_namef) +
+                #random temporal smooth. 3.2 GB
+                s(year, muni_namef, bs='fs', m=1) + 
+                #time varying covariates
+                s(tot_loss5y_percent, by  = state_namef) +
+                s(school_per1000, by  = state_namef) +
+                s(process_gold_p1000) +
+                s(gva_agri_percapita_reais, by  = state_namef), 
+              #AR1 residual errors
+              rho=0.9, AR.start = dfgam$start_event,
+              method = "fREML",
+              discrete = TRUE,
+              data = dfgam, 
+              control = myctrl)         
+hist(resid(bam_00, type = "deviance")) #
+summary(bam_00) #0.618
+plot(bam_00, scale = 0, all.terms = TRUE)
+saveRDS(bam_00, "bam_00.rds")
+bam_00 <- readRDS("bam_00.rds")
+
 #Include spatial and temporal autocorrelation
 #get tweedie p. takes few minutes even for simple example
 #gam_null_tw <- gam(log(gdp_percapita_reais) ~ 1,
