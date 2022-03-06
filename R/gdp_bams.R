@@ -56,7 +56,7 @@ bam_000 <- bam(log_gdp_percapita_reais~
                  #Time
                  s(year, state_namef, bs='fs', m=1) +
                     #s(year, by = state_namef) +
-                    #s(yearf, bs = "re") +
+                    s(yearf, bs = "re") +
                 #Random 
                  #temporal smooth. 3.2 GB
                 #s(year, muni_namef, bs='fs', m=1) + 
