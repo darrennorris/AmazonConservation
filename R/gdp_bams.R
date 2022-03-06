@@ -48,12 +48,14 @@ bam_000 <- bam(log_gdp_percapita_reais~
               discrete = TRUE,
               data = dfgam, 
               control = myctrl)   
+saveRDS(bam_000, "bam_000.rds")
+bam_000 <- readRDS("bam_000.rds")
 res_bam_ar1_000 <- resid(bam_000, type = "deviance")
 hist(res_bam_ar1_000) #
 summary(bam_000) #0.637
+appraise(bam_000)
 plot(bam_000, scale = 0, all.terms = TRUE)
-saveRDS(bam_000, "bam_000.rds")
-bam_000 <- readRDS("bam_000.rds")
+
 
 #residals not great for below
 bam_00 <- bam(log_gdp_percapita_reais~ 
@@ -80,13 +82,13 @@ plot(bam_00, scale = 0, all.terms = TRUE)
 saveRDS(bam_00, "bam_00.rds")
 bam_00 <- readRDS("bam_00.rds")
 
-dfgam$res_bam_ar1 <- resid(bam_00, type = "deviance")
+dfgam$res_bam_ar00 <- resid(bam_000, type = "deviance")
 #Temporal autocorrelation
 dfgam %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = res_bam_ar1, 
+    .value = res_bam_ar00, 
     .lags = 11
   ) -> tidy_acf
 
@@ -146,6 +148,26 @@ tidy_acf %>%
   )
 
 #Spatial autocorrelation
+#Basic reference vectors
+bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
+                     "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
+bla_state_siglas <- c("AC", "AP", "AM", "MA", 
+                      "MT", "PA", "TO", "RO", "RR")
+
+bla_state_capitals <- data.frame(name_muni = c("Manaus", "Macapá", "Porto Velho", "Rio Branco", 
+                                               "Boa Vista",
+                                               "São Luís", "Cuiabá", "Belém", "Palmas"), 
+                                 codmun7 = c(1302603, 1600303, 1100205, 1200401, 
+                                             1400100,
+                                             2111300, 5103403, 1501402, 1721000)
+) %>% mutate(muni_upper = toupper(name_muni)) %>% 
+  mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII"))
+
+dfstates <- data.frame(bla_state_names, bla_state_siglas)
+
+# https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774-malhas.html?=&t=downloads
+ibge_muni <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\analysis\\br_municipios_20200807\\BR_Municipios_2019.shp"
+sf_ninestate_muni <- st_read(ibge_muni) %>% filter(SIGLA_UF %in% bla_state_siglas)
 #Semivariograms
 #Distance matrix from locations of the mayors office
 ##763
@@ -165,10 +187,10 @@ sf_city %>% select(CD_GEOCODM, NM_MUNICIP, LONG, LAT, ALT) %>%
 bla_city %>% left_join(data.frame(sf_ninestate_muni) %>% 
                          select(!geometry), 
                        by = c("CD_GEOCODM"="CD_MUN")) %>% 
-  right_join(df_ar1 %>%
+  right_join(dfgam %>%
                group_by(state_name, muni_name) %>% 
-               summarise(median_resid = median(m01_res_gamm_ar1_lme), 
-                         sd_resid = sd(m01_res_gamm_ar1_lme)) %>% 
+               summarise(median_resid = median(res_bam_ar00), 
+                         sd_resid = sd(res_bam_ar00)) %>% 
                left_join(dfstates, 
                          by = c("state_name" = "bla_state_names")), 
              by = c("SIGLA_UF" = "bla_state_siglas", "NM_MUN" = "muni_name")) %>% 
