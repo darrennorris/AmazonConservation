@@ -206,6 +206,24 @@ df_ar1 %>%
   arrange(year_count)
 
 #Temporal autocorrelation
+dfgam %>%
+  group_by(state_namef, dist_statecapital_km) %>%
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = log_gdp_percapita_reais, 
+    .lags = 11
+  ) -> tidy_acf_gdp
+
+tidy_acf_gdp %>% 
+  filter(lag == 1) %>% pull(ACF) %>% median() #0.826
+
+tidy_acf_gdp %>% 
+  filter(lag == 1) %>%
+  group_by(state_namef) %>% 
+  summarise(median_acf = median(ACF),
+            min_acf = min(ACF), 
+            max_acf = max(ACF)) #Max 0.893
+
 df_ar1 %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
