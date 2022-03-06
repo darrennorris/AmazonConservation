@@ -82,13 +82,13 @@ plot(bam_00, scale = 0, all.terms = TRUE)
 saveRDS(bam_00, "bam_00.rds")
 bam_00 <- readRDS("bam_00.rds")
 
-dfgam$res_bam_ar00 <- resid(bam_000, type = "deviance")
+dfgam$res_bam_ar000 <- resid(bam_000, type = "deviance")
 #Temporal autocorrelation
 dfgam %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = res_bam_ar00, 
+    .value = res_bam_ar000, 
     .lags = 11
   ) -> tidy_acf
 
@@ -119,7 +119,7 @@ tidy_acf %>%
     subtitle = "GAMM AR(1) residuals", 
     x = "lag (year)"
   )
-
+#PACF
 tidy_acf %>% 
   ggplot(aes(x = lag, y = PACF, color = state_namef, 
              group = state_namef)) +
