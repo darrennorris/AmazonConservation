@@ -18,7 +18,7 @@ memory.limit(80000)
 #Uses dfgam from "gdp_analysis.R"
 dfgam <- readRDS("dfgam.rds") #13710 obs. 55 vars
 dfgam$log_gdp_percapita_reais <- log(dfgam$gdp_percapita_reais)
-#include start for AR.start
+#identify start of each timeseries (for AR.start)
 dfgam %>% 
 arrange(muni_factor, year) %>% 
   group_by(muni_factor) %>%
