@@ -51,11 +51,12 @@ myctrl <- list(keepData = TRUE, trace = TRUE)
 bam_000 <- bam(log_gdp_percapita_reais~ 
                 #Spatial smooth
                 s(long, lat) + 
-                #proximity
+                #Spatial proximity
                 s(dist_statecapital_km, by = state_namef) + 
                  #Time
-                 s(year, by = state_namef) +
-                 s(yearf, bs = "re") +
+                 s(year, state_namef, bs='fs', m=1) +
+                    #s(year, by = state_namef) +
+                    #s(yearf, bs = "re") +
                 #Random 
                  #temporal smooth. 3.2 GB
                 #s(year, muni_namef, bs='fs', m=1) + 
