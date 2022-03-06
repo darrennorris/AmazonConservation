@@ -43,7 +43,8 @@ bam_000 <- bam(log_gdp_percapita_reais~
                 s(process_gold_p1000) +
                 s(gva_agri_percapita_reais), 
               #AR1 residual errors
-              rho=0.97, AR.start = dfgam$start_event,
+              rho=0.97, AR.start = dfgam$start_event, 
+              family=Tweedie(1.99),
               method = "fREML",
               discrete = TRUE,
               data = dfgam, 
