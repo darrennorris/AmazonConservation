@@ -67,7 +67,8 @@ bam_000 <- bam(log_gdp_percapita_reais~
                 s(school_per1000) +
                 s(process_gold_p1000) + 
                  s(gva_industry_percent) +
-                s(gva_agri_percapita_reais), 
+                s(gva_agri_percapita_reais) +
+               ti(gva_agri_percapita_reais, gva_industry_percent), 
               #AR1 residual errors
               rho=0.893, AR.start = dfgam$start_event, 
               family=Tweedie(1.99),
