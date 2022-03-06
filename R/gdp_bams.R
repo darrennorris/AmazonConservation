@@ -36,6 +36,7 @@ bam_000 <- bam(log_gdp_percapita_reais~
                 s(dist_statecapital_km, by = state_namef) +
                 #random temporal smooth. 3.2 GB
                 #s(year, muni_namef, bs='fs', m=1) + 
+                 s(state_namef, bs="re") + 
                 #time varying covariates
                 s(tot_loss5y_percent) +
                 s(school_per1000) +
@@ -49,7 +50,7 @@ bam_000 <- bam(log_gdp_percapita_reais~
               control = myctrl)   
 res_bam_ar1_000 <- resid(bam_000, type = "deviance")
 hist(res_bam_ar1_000) #
-summary(bam_000) #0.618
+summary(bam_000) #0.637
 plot(bam_000, scale = 0, all.terms = TRUE)
 saveRDS(bam_000, "bam_000.rds")
 bam_000 <- readRDS("bam_000.rds")
