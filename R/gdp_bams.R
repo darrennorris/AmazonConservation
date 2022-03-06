@@ -52,7 +52,7 @@ bam_000 <- bam(log_gdp_percapita_reais~
                 #Spatial smooth
                 s(long, lat) + 
                 #Spatial proximity
-                s(dist_statecapital_km, by = state_namef) + 
+                s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
                  #Time
                  s(year, state_namef, bs='fs', m=1) +
                     #s(year, by = state_namef) +
@@ -100,10 +100,11 @@ tidy_acf %>%
             median_pacf = median(PACF), 
             quant95_pacf = quantile(PACF, probs = 0.95),
             max_pacf = max(PACF)
-            ) # max values all > 0.8
+            ) # max values all > 0.75
 
 #export as .png  250 * 1000
 tidy_acf %>% 
+  filter(state_namef == "Mato Grosso") %>%
   ggplot(aes(x = lag, y = ACF, color = state_namef, 
              group = state_namef)) +
   # Add horizontal line a y=0
@@ -131,6 +132,7 @@ tidy_acf %>%
   )
 #PACF
 tidy_acf %>% 
+  filter(state_namef == "Mato Grosso") %>%
   ggplot(aes(x = lag, y = PACF, color = state_namef, 
              group = state_namef)) +
   # Add horizontal line a y=0
@@ -176,7 +178,7 @@ bla_state_capitals <- data.frame(name_muni = c("Manaus", "Macapá", "Porto Velho
 dfstates <- data.frame(bla_state_names, bla_state_siglas)
 
 # https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774-malhas.html?=&t=downloads
-ibge_muni <- "C:\\Users\\user\\Documents\\Articles\\2022_Norris_gdp_deforestation\\analysis\\br_municipios_20200807\\BR_Municipios_2019.shp"
+ibge_muni <- "vector//brazil_ninestate_municipalities//ninestate_muni.shp"
 sf_ninestate_muni <- st_read(ibge_muni) %>% filter(SIGLA_UF %in% bla_state_siglas)
 #Semivariograms
 #Distance matrix from locations of the mayors office
@@ -199,8 +201,8 @@ bla_city %>% left_join(data.frame(sf_ninestate_muni) %>%
                        by = c("CD_GEOCODM"="CD_MUN")) %>% 
   right_join(dfgam %>%
                group_by(state_name, muni_name) %>% 
-               summarise(median_resid = median(res_bam_ar00), 
-                         sd_resid = sd(res_bam_ar00)) %>% 
+               summarise(median_resid = median(res_bam_ar000), 
+                         sd_resid = sd(res_bam_ar000)) %>% 
                left_join(dfstates, 
                          by = c("state_name" = "bla_state_names")), 
              by = c("SIGLA_UF" = "bla_state_siglas", "NM_MUN" = "muni_name")) %>% 
