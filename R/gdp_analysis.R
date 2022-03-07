@@ -73,7 +73,8 @@ df_muni %>% filter(!is.na(forest_2019_km2)) %>%
 #https://fromthebottomoftheheap.net/2021/02/02/random-effects-in-gams/
 ## gva and gdp lags do not improve model
 names(df_muni_year)
-var_response <- c("gdp_percapita_reais")
+var_response <- c("gdp_percapita_reais", "salary_mean_reais", 
+                  "min_salary_mean")
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", 
                       "long", "lat" ,"dist_statecapital_km", 
                       "flag_urban", "indigenous_area_percent", 
@@ -106,7 +107,7 @@ df_muni_year %>%
            lag04_lossarea_per + lag05_lossarea_per, 
          adate = as.Date(paste(year,"-01", "-01", sep="")), 
          format = c("%Y-%m-%d")) -> dfgam
-which(is.na(dfgam)[,3]) #0 no nulls
+which(is.na(dfgam)[,3]) #salary values
 
 #reclassify based on GDP levels
 dfgam %>% 
