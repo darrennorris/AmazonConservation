@@ -6,6 +6,8 @@ library(stringi)
 library(timetk)
 library(gratia)
 library(sf)
+library(gridExtra)
+library(cowplot)
 
 #guides
 #bam
@@ -78,13 +80,77 @@ bam_000 <- bam(log_gdp_percapita_reais~
               control = myctrl)   
 saveRDS(bam_000, "bam_000.rds")
 bam_000 <- readRDS("bam_000.rds")
+#Residuals
 res_bam_ar1_000 <- resid(bam_000, type = "deviance")
 hist(res_bam_ar1_000) #
 summary(bam_000) #0.967
 #appraise(bam_000) # do not use locks process/memory
 plot(bam_000, scale = 0, all.terms = TRUE)
 
-dfgam$res_bam_ar000 <- res_bam_ar1_000
+my_check <- function(x, mod_name = NA){
+  myres <-  resid(x, type = "deviance") 
+  my_r2 <- summary(x)$r.sq
+  my_devexp <- summary(x)$dev.expl
+  my_formula <- x$formula
+  my_formula_text <- stri_wrap(my_formula, 80, simplify=TRUE)
+  my_formula_lines <- paste(my_formula_text[-1], collapse="\n")
+  my_formula_title <- paste(mod_name, my_formula_lines, sep=":   ")
+  hist_label <- paste("r2adj:",round(my_r2,2),"dev_exp:", round(my_devexp,2))
+  val_limit <- max(abs(myres)) 
+  #plot
+  dfgam %>% 
+    ggplot(aes(x=myres)) + 
+    geom_histogram() + 
+    scale_x_continuous(limits=c(-val_limit, val_limit)) +
+    labs(subtitle = hist_label,
+         x="residual", y="count") -> fig_hist
+  ymax <-  max(layer_scales(fig_hist)$y$range$range)
+  fig_hist +
+    geom_jitter(aes(x=myres, y= (ymax + (0.05*ymax))), 
+                width=0, height=60) -> fig_hist
+  #
+  
+  my_fitted <- x$fitted.values
+  my_y <- bam_000$y
+  cor_res <- cor.test(my_fitted, my_y)
+  cor_label <- paste("correlation:", round(cor_res$estimate,2))
+  dfgam %>% 
+    ggplot(aes(x=my_fitted, y=my_y)) + 
+    geom_point() + labs(x="fitted", y="observed") + 
+    coord_equal() + 
+    labs(subtitle = cor_label)-> fig_corr
+  
+  #grid.arrange(fig_hist, fig_corr, nrow = 1)
+  plot_row <- plot_grid(fig_hist, fig_corr, align = "h")
+  # now add the title
+  title <- ggdraw() + 
+    draw_label(
+      my_formula_title,
+      #fontface = 'bold', 
+      size = 8,
+      x = 0,
+      hjust = 0
+    ) +
+    theme(
+      # add margin on the left of the drawing canvas,
+      # so title is aligned with left edge of first plot
+      plot.margin = margin(0, 0, 0, 7)
+    )
+  plot_grid(
+    title, plot_row,
+    ncol = 1,
+    # rel_heights values control vertical title margins
+    rel_heights = c(0.33, 1)
+  )
+}
+my_check(bam_000, mod_name ="bam_000")
+
+
+dfgam$res_bam_ar1_000 <- res_bam_ar1_000
+dfgam$fit_bam_ar1_000 <- fit_bam_ar1_000
+
+
+
 #Temporal autocorrelation
 dfgam %>%
   group_by(state_namef, dist_statecapital_km) %>%

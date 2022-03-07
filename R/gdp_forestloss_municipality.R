@@ -448,6 +448,31 @@ df_regressions_gva_agri_out %>%
   facet_wrap(~uf_sigla) + 
   theme(legend.position = "none")
 
+#original 1985 cover
+dfmapbiomas_cover_muni <- read_excel("data//Mapbiomas-Brazil-land-cover.xlsx", 
+                                          sheet = "municipality", 
+                                          .name_repair = "universal") %>% 
+  filter(state %in% bla_state_names)
+# cover per municipality
+#
+df_gdppop_muni_02a19 %>% 
+  group_by(uf_sigla, uf) %>% 
+  summarise(count_muni = length(unique(codmun7))) %>% right_join(
+    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
+  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>% 
+  crossing(year = 2002:2019) %>% left_join(
+    #
+    dfmapbiomas_cover_muni %>% 
+      filter(level_2 %in% c("Forest Formation", "Savanna Formation")) %>% 
+      group_by(state, city) %>% 
+      summarise(forestcover_1985_km2 = sum(replace_na(...1985,0))/100) %>% 
+      ungroup() , 
+    by = c( "uf" = "state", "NM_MUN" = "city") 
+  ) %>% 
+  mutate(forestcover_1985_percent = (forestcover_1985_km2 /AREA_KM2)*100) %>% 
+  arrange(uf_sigla, NM_MUN) %>% 
+  write.csv("muni_fixedcover_year.csv", row.names = FALSE)
+
 #Forest loss
 # Transition as a proportion of municipality area.
 #Mapbiomas
