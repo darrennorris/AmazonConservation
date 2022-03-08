@@ -3,6 +3,7 @@
 library(tidyverse)
 library(readxl)
 library(gridExtra)
+library(mgcv)
 
 #load data
 dfgam <- readRDS("dfgam.rds") #13710 obs. 63 vars
