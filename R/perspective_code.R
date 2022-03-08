@@ -2,7 +2,10 @@
 #packages
 library(tidyverse)
 library(readxl)
-dfgam <- readRDS("dfgam.rds") #13710 obs. 55 vars
+library(gridExtra)
+
+#load data
+dfgam <- readRDS("dfgam.rds") #13710 obs. 63 vars
 dfgam$log_gdp_percapita_reais <- log(dfgam$gdp_percapita_reais)
 
 #GDP increase
@@ -14,7 +17,7 @@ dfgam %>% group_by(year) %>%
   mutate(gdp_diff = lead_gdp - gdp_median_usd, 
          gdp_inc = lead_gdp/gdp_median_usd)
 #Forest loss
-count_muni <- length(unique(dfgam$muni_factor))
+count_muni <- length(unique(dfgam$muni_factor)) #763
 dfgam %>% 
   group_by(state_name, muni_name, muni_area_km2) %>% 
   summarise(acount = n()) %>% ungroup() %>% 
@@ -67,6 +70,7 @@ summary(df_muni_cover40$median_industry) # median = 4.6, max = 41.5
 dfgam %>% 
   filter(forestcover_1985_percent >=60, indigenous_area_percent <= 21, 
          dist_statecapital_km <= 753, muni_area_km2 <= 12535, 
+         tot_forest_cover_2019_percent >=60,
          state_name %in% keep_states) %>%
   group_by(state_name, muni_name, muni_area_km2, 
            dist_statecapital_km, indigenous_area_percent, 
@@ -114,6 +118,7 @@ levels(dfgam_matched$cover_group) <- c("forest cover <=40%",
                                        "forest cover >=60%")
 
 dfgam_matched %>% 
+  filter(!is.na(min_salary_mean)) %>%
   ggplot(aes(x=year, y=gdp_percapita_reais / 3.946)) + 
   geom_point() + 
   stat_smooth(method = "lm") + 
@@ -121,4 +126,45 @@ dfgam_matched %>%
   scale_y_continuous("GDP per capita (US$)", 
                      labels = scales::unit_format(unit = "k", 
                                                   scale = 1e-3)) + 
-  
+  labs(title = "(A)") +
+  theme(plot.title.position = "plot") -> fig_GDP_matched
+fig_GDP_matched
+
+dfgam_matched %>% 
+  filter(!is.na(min_salary_mean)) %>%
+  ggplot(aes(x=year, y=min_salary_mean)) + 
+  geom_point() + 
+  stat_smooth(method = "lm") + 
+  facet_wrap(~cover_group) + 
+  scale_y_continuous("minimum salary") + 
+  labs(title = "(B)") +
+  theme(plot.title.position = "plot") -> fig_salary_matched
+fig_salary_matched
+
+#Export
+png(file = "figures//fig_economic_matched.png", 
+    bg = "white", type = c("cairo"), 
+    width=3000, height=3000, res = 600)
+grid.arrange(fig_GDP_matched, fig_salary_matched, nrow = 2)
+dev.off()
+
+#sanitation
+df_muni <- read_excel("data//bla_municipalities.xlsx", 
+                      na = c("", "NA"),
+                      sheet = "municipality_fixed_ref",
+                      .name_repair = "universal")
+df_muni %>% 
+  right_join(dfmatched %>% 
+               select(state_name, muni_name, trees)) -> df_muni_matched
+df_muni_matched$cover_group <- as.factor(df_muni_matched$trees)
+levels(df_muni_matched$cover_group) <- c("forest cover <=40%", 
+                                       "forest cover >=60%")
+
+df_muni_matched %>% 
+  ggplot(aes(x = cover_group, y = flag_sanitation_plan)) + 
+  geom_violin() +
+  geom_jitter(height = 0.03, width=0.3)
+df_muni_matched %>% 
+  ggplot(aes(x = cover_group, y = flag_int_complete_cover)) + 
+  geom_violin() +
+  geom_jitter(height = 0.03, width=0.3)
