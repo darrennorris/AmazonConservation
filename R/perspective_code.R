@@ -208,7 +208,8 @@ dfgam_matched %>%
 aov <- lm(log_gdp_percapita_reais~cover_group, data = dfgam_matched_model)
 summary(aov) #marginally significant
 myctrl <- list(keepData = TRUE, trace = TRUE)  
-bam_000 <- bam(log_gdp_percapita_reais~ 
+bam_loss_01 <- bam(log_gdp_percapita_reais~ 
+                 cover_group +
                  #Spatial smooth
                  s(long, lat) + 
                  #Spatial proximity
