@@ -8,7 +8,7 @@ library(gridExtra)
 dfgam <- readRDS("dfgam.rds") #13710 obs. 63 vars
 dfgam$log_gdp_percapita_reais <- log(dfgam$gdp_percapita_reais)
 
-#GDP increase
+#GDP increase over time
 dfgam %>% group_by(year) %>% 
   summarise(gdp_median_reais = median(gdp_percapita_reais), 
             gdp_median_usd = median(gdp_percapita_reais) / 3.946) %>% 
@@ -21,7 +21,7 @@ count_muni <- length(unique(dfgam$muni_factor)) #763
 dfgam %>% 
   group_by(state_name, muni_name, muni_area_km2) %>% 
   summarise(acount = n()) %>% ungroup() %>% 
-  pull(muni_area_km2) %>% sum() -> tot_muni_area_km2
+  pull(muni_area_km2) %>% sum() -> tot_muni_area_km2 #4956340
 dfgam %>% 
   group_by(state_name, muni_name, muni_area_km2, forestcover_1985_km2) %>% 
   summarise(acount = n()) %>% ungroup() %>% 
@@ -66,7 +66,7 @@ summary(df_muni_cover40$median_gold_p1000) #0
 summary(df_muni_cover40$median_pop_dens) # median = 11, max = 334
 summary(df_muni_cover40$median_industry) # median = 4.6, max = 41.5
 
-# 327
+# 132
 dfgam %>% 
   filter(forestcover_1985_percent >=60, indigenous_area_percent <= 21, 
          dist_statecapital_km <= 753, muni_area_km2 <= 12535, 
@@ -84,12 +84,34 @@ dfgam %>%
          median_pop_dens <=350, 
          median_industry <= 42) %>% 
   ungroup() -> df_muni_cover60
+# <= 50%, 124
+dfgam %>% 
+  filter(forestcover_1985_percent >=60, indigenous_area_percent <= 21, 
+         dist_statecapital_km <= 753, muni_area_km2 <= 12535, 
+         tot_forest_cover_2019_percent <=50,
+         state_name %in% keep_states) %>%
+  group_by(state_name, muni_name, muni_area_km2, 
+           dist_statecapital_km, indigenous_area_percent, 
+           forestcover_1985_percent, tot_forest_cover_2019_percent) %>% 
+  summarise(median_gold_p1000 = median(process_gold_p1000), 
+            median_pop_dens = median(pop_dens_km2),
+            median_industry = median(gva_industry_percent),
+            acount = n()) %>% 
+  filter(acount ==18, 
+         median_gold_p1000==0, 
+         median_pop_dens <=350, 
+         median_industry <= 42) %>% 
+  ungroup() -> df_muni_cover60less
 
 df_muni_cover40 %>% mutate(trees = "few") %>% 
-  bind_rows(df_muni_cover60  %>% mutate(trees = "many")) -> dfmatched
+  bind_rows(df_muni_cover60  %>% mutate(trees = "many")) %>% 
+  bind_rows(df_muni_cover60less %>% mutate(trees = "many_loss")) -> dfmatched
 library(Hmisc)
-options(digits=3)
-par(mfrow = c(3, 2)) # 450 * 600
+
+png(file = "figures//fig_back2back.png", 
+    bg = "white", type = c("cairo"), 
+    width=1500, height=7000, res = 600)
+par(mfrow = c(6, 1))
 histbackback(df_muni_cover40$muni_area_km2, 
              df_muni_cover60$muni_area_km2, probability=TRUE, 
              xlab = c("<=40",">=60"), main = "municipality size (km2)")
@@ -108,6 +130,32 @@ histbackback(df_muni_cover40$median_industry,
 histbackback(df_muni_cover40$tot_forest_cover_2019_percent, 
              df_muni_cover60$tot_forest_cover_2019_percent, probability=TRUE, 
              xlab = c("<=40",">=60"), main = "forest cover 2019 (%)") 
+dev.off()
+
+#loss
+png(file = "figures//fig_back2backloss.png", 
+    bg = "white", type = c("cairo"), 
+    width=1500, height=7000, res = 600)
+par(mfrow = c(6, 1))
+histbackback(df_muni_cover40$muni_area_km2, 
+             df_muni_cover60less$muni_area_km2, probability=TRUE, 
+             xlab = c("<=40",">=60 loss"), main = "municipality size (km2)")
+histbackback(df_muni_cover40$dist_statecapital_km, 
+             df_muni_cover60less$dist_statecapital_km, probability=TRUE, 
+             xlab = c("<=40",">=60 loss"), main = "distance to state capital (km)")
+histbackback(df_muni_cover40$median_pop_dens, 
+             df_muni_cover60less$median_pop_dens, probability=TRUE, 
+             xlab = c("<=40",">=60 loss"), main = "population density")
+histbackback(df_muni_cover40$indigenous_area_percent, 
+             df_muni_cover60less$indigenous_area_percent, probability=TRUE, 
+             xlab = c("<=40",">=60 loss"), main = "indigenous area (%)")
+histbackback(df_muni_cover40$median_industry, 
+             df_muni_cover60less$median_industry, probability=TRUE, 
+             xlab = c("<=40",">=60 loss"), main = "industry  value contribution (%)")
+histbackback(df_muni_cover40$tot_forest_cover_2019_percent, 
+             df_muni_cover60less$tot_forest_cover_2019_percent, probability=TRUE, 
+             xlab = c("<=40",">=60 loss"), main = "forest cover 2019 (%)") 
+dev.off()
 
 #Analysis with matched groups
 #matched subset
@@ -115,7 +163,8 @@ dfgam %>%
   right_join(dfmatched %>% select(state_name, muni_name, trees)) -> dfgam_matched
 dfgam_matched$cover_group <- as.factor(dfgam_matched$trees)
 levels(dfgam_matched$cover_group) <- c("forest cover <=40%", 
-                                       "forest cover >=60%")
+                                       "forest cover >=60%", 
+                                       "forest cover >=60%\nwith loss")
 
 dfgam_matched %>% 
   filter(!is.na(min_salary_mean)) %>%
@@ -140,7 +189,6 @@ dfgam_matched %>%
   labs(title = "(B)") +
   theme(plot.title.position = "plot") -> fig_salary_matched
 fig_salary_matched
-
 #Export
 png(file = "figures//fig_economic_matched.png", 
     bg = "white", type = c("cairo"), 
@@ -148,7 +196,43 @@ png(file = "figures//fig_economic_matched.png",
 grid.arrange(fig_GDP_matched, fig_salary_matched, nrow = 2)
 dev.off()
 
-#sanitation
+#Explain
+dfgam_matched %>% 
+  filter(!is.na(min_salary_mean)) %>% 
+  arrange(muni_factor, year) %>% 
+  group_by(muni_factor) %>%
+  mutate(start_year = min(year)) %>% 
+  mutate(start_event = year== start_year) %>% 
+  ungroup() -> dfgam_matched_model
+
+aov <- lm(log_gdp_percapita_reais~cover_group, data = dfgam_matched_model)
+summary(aov) #marginally significant
+myctrl <- list(keepData = TRUE, trace = TRUE)  
+bam_000 <- bam(log_gdp_percapita_reais~ 
+                 #Spatial smooth
+                 s(long, lat) + 
+                 #Spatial proximity
+                 s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
+                 #Time
+                 s(year, cover_group, bs='fs', m=1) +
+                 #s(year, by = state_namef) +
+                 s(yearf, bs = "re") +
+                 #Random 
+                 #temporal smooth. 3.2 GB
+                 #s(year, muni_namef, bs='fs', m=1) + 
+                 s(state_namef, bs="re") + 
+                 s(muni_factor, bs="re")+ 
+                 s(cover_group, bs="re"), 
+               #AR1 residual errors
+               rho=0.893, AR.start = dfgam$start_event, 
+               family=Tweedie(1.99),
+               method = "fREML",
+               discrete = TRUE,
+               data = dfgam_matched_model, 
+               control = myctrl)   
+
+
+#other essentials to a standard of living
 df_muni <- read_excel("data//bla_municipalities.xlsx", 
                       na = c("", "NA"),
                       sheet = "municipality_fixed_ref",
@@ -158,13 +242,35 @@ df_muni %>%
                select(state_name, muni_name, trees)) -> df_muni_matched
 df_muni_matched$cover_group <- as.factor(df_muni_matched$trees)
 levels(df_muni_matched$cover_group) <- c("forest cover <=40%", 
-                                       "forest cover >=60%")
+                                         "forest cover >=60%", 
+                                         "forest cover >=60%\nwith loss")
 
+#sanitation
 df_muni_matched %>% 
   ggplot(aes(x = cover_group, y = flag_sanitation_plan)) + 
   geom_violin() +
-  geom_jitter(height = 0.03, width=0.3)
+  scale_y_continuous("sanitation plan approved", 
+                     breaks = c(0,1), labels = c("no", "yes")) +
+  geom_jitter(height = 0.03, width=0.3) + 
+  labs(title = "(A)") +
+  theme(plot.title.position = "plot", 
+        axis.title.x = element_blank()) -> fig_essential_sani
+fig_essential_sani
+#internet
 df_muni_matched %>% 
   ggplot(aes(x = cover_group, y = flag_int_complete_cover)) + 
-  geom_violin() +
-  geom_jitter(height = 0.03, width=0.3)
+  geom_violin() + 
+  scale_y_continuous("internet connection", 
+                     breaks = c(0,1), labels = c("no", "yes")) +
+  geom_jitter(height = 0.03, width=0.3) +
+  labs(title = "(B)") +
+  theme(plot.title.position = "plot", 
+        axis.title.x = element_blank()) -> fig_essential_inter
+fig_essential_inter
+
+#Export
+png(file = "figures//fig_essentials_matched.png", 
+    bg = "white", type = c("cairo"), 
+    width=3000, height=2800, res = 600)
+grid.arrange(fig_essential_sani, fig_essential_inter, nrow = 2)
+dev.off()
