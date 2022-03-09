@@ -73,14 +73,15 @@ df_muni %>% filter(!is.na(forest_2019_km2)) %>%
 #https://fromthebottomoftheheap.net/2021/02/02/random-effects-in-gams/
 ## gva and gdp lags do not improve model
 names(df_muni_year)
-var_response <- c("gdp_percapita_reais", "salary_mean_reais", 
-                  "min_salary_mean")
+var_response <- c("gdp_percapita_reais",  
+                  "salary_mean_reais", "min_salary_mean")
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", 
                       "long", "lat" ,"dist_statecapital_km", 
                       "flag_urban", "indigenous_area_percent", 
                       "forestcover_1985_km2", "forestcover_1985_percent",
                       "tot_forest_cover_2019_km2", "tot_forest_cover_2019_percent")
-var_timevary <- c("year","pop_dens_km2", "tot_loss_percent", "tot_loss_km2",
+var_timevary <- c("year","pop_dens_km2", "tot_pop", 
+                  "tot_loss_percent", "tot_loss_km2",
                   "mine_area_km2_construction_percapita", "mine_area_km2_gold_percapita",        
                   "mine_area_km2_metal_percapita",  "mine_area_km2_calcium_percapita",     
                   "process_construction_p1000", "process_gold_p1000",                  
@@ -147,6 +148,9 @@ levels(dfgam$pres_groupf)#left wing Lula is the reference level
 dfgam$main_sectorf <- as.factor(dfgam$main_sector)
 dfgam$dominant_sectorsf <- as.factor(dfgam$dominant_sectors) 
 dfgam$dominant_groupsf <- as.factor(dfgam$dominant_groups)
+dfgam$log_gdp_percapita_reais <- log(dfgam$gdp_percapita_reais)
+dfgam$gdp_percapita_usd = dfgam$gdp_percapita_reais / 3.946
+#Export for further use
 saveRDS(dfgam, "dfgam.rds")
 dfgam <- readRDS("dfgam.rds")
 

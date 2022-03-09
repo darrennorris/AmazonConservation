@@ -291,6 +291,34 @@ myvar$max.dist <- myvar$max.dist/1000
 myvar$uvec <- myvar$uvec/1000
 plot(myvar, var.lines=TRUE, envelope.obj = mye, xlab = "distance (km)")
 
+#repeat with salary
+#1.337
+gam_loss_01tw <- gam(min_salary_mean ~ 1, 
+                     family= tw(),
+                     method = "fREML",
+                     data = dfgam_matched_model)
+# get rho value for AR1 component
+dfgam_matched_model %>%
+  group_by(state_namef, dist_statecapital_km) %>%
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = min_salary_mean, 
+    .lags = 11
+  ) -> tidy_acf_salary
+
+tidy_acf_salary %>% 
+  filter(lag == 1) %>% pull(ACF) %>% median() #0.38
+
+tidy_acf_salary %>% 
+  filter(lag == 1) %>%
+  group_by(state_namef) %>% 
+  summarise(median_acf = median(ACF),
+            min_acf = min(ACF), 
+            max_acf = max(ACF), 
+            max_pacf = max(PACF)) #Max 0.843
+
+
+
 #Below nnotes and testing
 #residals not great for below
 bam_00 <- bam(log_gdp_percapita_reais~ 
