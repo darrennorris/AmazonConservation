@@ -27,25 +27,49 @@ arrange(muni_factor, year) %>%
   mutate(start_year = min(year)) %>% 
   mutate(start_event = year== start_year) %>% 
   ungroup() -> dfgam
+
+dfgam_matched_model %>% 
+  arrange(muni_factor, year) %>% 
+  group_by(muni_factor) %>%
+  mutate(start_year = min(year)) %>% 
+  mutate(start_event = year== start_year) %>% 
+  ungroup() -> dfgam_matched_model
+hist(log(dfgam_matched_model$gva_agri_percapita_reais))
 # get rho value for AR1 component
 dfgam %>%
   group_by(state_namef, dist_statecapital_km) %>%
   tk_acf_diagnostics(
     .date_var = year,
-    .value = log_gdp_percapita_reais, 
+    .value = , 
     .lags = 11
-  ) -> tidy_acf_gdp
+  ) -> tidy_acf_gva
 
-tidy_acf_gdp %>% 
-  filter(lag == 1) %>% pull(ACF) %>% median() #0.826
 
-tidy_acf_gdp %>% 
+
+dfgam_matched_model %>%
+  group_by(state_namef, dist_statecapital_km) %>%
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = log(gva_agri_percapita_reais), 
+    .lags = 11
+  ) -> tidy_acf_gva
+
+tidy_acf_gva %>% 
+  filter(lag == 1) %>% pull(ACF) %>% median() #0.696
+
+tidy_acf_gva %>% 
   filter(lag == 1) %>%
   group_by(state_namef) %>% 
   summarise(median_acf = median(ACF),
             min_acf = min(ACF), 
             max_acf = max(ACF), 
-            max_pacf = max(PACF)) #Max 0.893
+            max_pacf = max(PACF)) #Max 0.874
+#tweedie 1.99
+gam_gva_tw <- gam(log_gva_percapita_reais~1 ,
+     family=tw(),
+     method = "fREML",
+     data = dfgam_matched_model)
+
 
 #random smooths adjust the trend of a numeric predictor 
 #in a nonlinear way: s(Time, Subject, bs="fs", m=1).

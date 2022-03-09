@@ -4,11 +4,20 @@ library(tidyverse)
 library(readxl)
 library(gridExtra)
 library(mgcv)
+library(scales)
 
 #load data
-dfgam <- readRDS("dfgam.rds") #13710 obs. 63 vars
-dfgam$log_gdp_percapita_reais <- log(dfgam$gdp_percapita_reais)
-dfgam$gdp_percapita_usd = dfgam$gdp_percapita_reais / 3.946
+dfgam <- readRDS("dfgam.rds") #13710 obs. 66 vars
+dfgam$log_gva_percapita_reais <- log(dfgam$gva_agri_percapita_reais)
+#Add weighted means by total pop of each municipality?
+#GVA agriculture increase over time
+dfgam %>% group_by(year) %>% 
+  summarise(gva_median_reais = median(gva_agri_percapita_usd * 3.946), 
+            gva_median_usd = median(gva_agri_percapita_usd)) %>% 
+  filter(year %in% c(2002, 2019)) %>% 
+  mutate(lead_gva = lead(gva_median_usd)) %>% 
+  mutate(gva_diff = lead_gva - gva_median_usd, 
+         gva_inc = lead_gva/gva_median_usd)
 
 #GDP increase over time
 dfgam %>% group_by(year) %>% 
@@ -18,6 +27,26 @@ dfgam %>% group_by(year) %>%
   mutate(lead_gdp = lead(gdp_median_usd)) %>% 
   mutate(gdp_diff = lead_gdp - gdp_median_usd, 
          gdp_inc = lead_gdp/gdp_median_usd)
+
+#Salary increase over time
+dfgam %>% group_by(year) %>% 
+  filter(!is.na(min_salary_mean)) %>%
+  summarise(median_salary = median(min_salary_mean)) %>% 
+  filter(year %in% c(2006, 2019)) %>% 
+  mutate(lead_salary = lead(median_salary)) %>% 
+  mutate(salary_diff = lead_salary - median_salary, 
+         salary_inc = lead_salary/median_salary)
+
+#Salary in reais
+dfgam %>% group_by(year) %>% 
+  filter(!is.na(salary_mean_reais)) %>%
+  summarise(median_salary = median(salary_mean_reais)) %>% 
+  filter(year %in% c(2006, 2019)) %>% 
+  mutate(lead_salary = lead(median_salary)) %>% 
+  mutate( salary_usd = lead_salary / 3.946, 
+          salary_diff = lead_salary - median_salary, 
+         salary_inc = lead_salary/median_salary)
+
 #Forest loss
 count_muni <- length(unique(dfgam$muni_factor)) #763
 dfgam %>% 
@@ -36,6 +65,7 @@ round((tot_loss_km2_02a19 / tot_forestcover_1985_km) * 100, 3) #12.032
 
 
 #Correlations
+cor.test(dfgam$gva_agri_percapita_reais, dfgam$tot_loss_km2) #0.036
 cor.test(dfgam$gdp_percapita_reais, dfgam$tot_loss_km2) #0.019
 cor.test(dfgam$log_gdp_percapita_reais, dfgam$tot_loss_km2) #0.05301267
 cor.test(dfgam$min_salary_mean, dfgam$tot_loss_km2) #0.1546216
@@ -49,9 +79,14 @@ dfgam %>%
   group_by(year) %>%
   summarise(area = median(gdp_percapita_usd, na.rm=TRUE)) %>% 
   pull(area) %>% max() -> gdp_percapita_usd_median_max #[1] 3569.88
+dfgam %>% 
+  group_by(year) %>%
+  summarise(area = median(gva_agri_percapita_usd, na.rm=TRUE)) %>% 
+  pull(area) %>% max() -> gva_percapita_usd_median_max #628.75
 
+axis_trans_mapbiomasgva <- mapbiomasloss_all_max / gva_percapita_usd_median_max
 axis_trans_mapbiomasall <- mapbiomasloss_all_max / gdp_percapita_usd_median_max
-
+#salary
 dfgam %>% 
   group_by(year) %>%
   summarise(area = median(min_salary_mean, na.rm=TRUE)) %>% 
@@ -59,21 +94,50 @@ dfgam %>%
   pull(area) %>% max() -> min_salary_mean_median_max #[1] 1.9
 axis_trans_mapbiomassal <- mapbiomasloss_all_max / min_salary_mean_median_max
 
-# try gini on salary
-library(ineq)
-dfgam %>% 
-  group_by(year) %>%
-  summarise(gini_ineq = ineq::ineq(min_salary_mean))
+# try gini on salary. NO #
+#library(ineq)
+#dfgam %>% 
+#  group_by(year) %>%
+#  summarise(gini_ineq = ineq::ineq(min_salary_mean))
 
 df_mapbiomasall_labels <- data.frame(year = c(2004, 2019), 
                                      yaxis_value = mapbiomasloss_all_max +(mapbiomasloss_all_max*0.05),
                                      label_values = c(round(mapbiomasloss_all_max,0), 
                                                       round(gdp_percapita_usd_median_max,0)), 
                                      label_values_salary = c(round(mapbiomasloss_all_max,0), 
-                                                      round(min_salary_mean_median_max,2)))
+                                                      round(min_salary_mean_median_max,2)), 
+                                     label_values_gva = c(round(mapbiomasloss_all_max,0), 
+                                                             round(gva_percapita_usd_median_max,0)))
 df_mapbiomasall_labels
 mycols_mapbiomas <- c("savanna" = "deeppink4", 
                       "forest" = "deeppink")
+
+dfgam %>% 
+  group_by(year) %>% 
+  summarise(tot_loss_km2 = sum(tot_loss_km2), 
+            gva_per_capita_usd = median(gva_agri_percapita_usd)) %>%
+  ggplot(aes(x=year, y=tot_loss_km2)) + 
+  geom_col(fill="deeppink", colour="blue") + 
+  #geom_line(data = dfmapbiomas_forestloss_3yr, aes(x=year, y = area_km2_3y), 
+  #          colour ="grey60", size = 1.5) +
+  #geom_line(data = dfmapbiomas_forestloss_3yr, aes(x=year, y = area_km2_3y), 
+  #          colour ="yellow", linetype = "dashed", size = 1.1) +
+  geom_line(aes(x=year, y=gva_per_capita_usd*axis_trans_mapbiomasgva), 
+            size=2, color="black") + 
+  scale_y_continuous(limits = c(0, 50000), 
+                     #for the second y-axis
+                     sec.axis = sec_axis(~./axis_trans_mapbiomasgva,#divided by transformation rate, in order to be represented based on the first y-axis
+                                         name = "agriculture GVA per capita (US$)")) + 
+  scale_x_continuous(limits = c(2001.5, 2019.5))  + 
+  geom_label(data = df_mapbiomasall_labels, 
+             aes(x= year, y = yaxis_value, label = label_values_gva), 
+             colour = c("blue", "black")) + 
+  labs(title = "(A)", 
+       y = bquote('forest loss'~(km^2)))  +
+  theme(text = element_text(size = 16), 
+        plot.title.position = "plot", 
+        legend.position = "top", legend.box = "horizontal") -> figa_loss_gva
+figa_loss_gva
 
 dfgam %>% 
   group_by(year) %>% 
@@ -95,12 +159,12 @@ ggplot(aes(x=year, y=tot_loss_km2)) +
   geom_label(data = df_mapbiomasall_labels, 
              aes(x= year, y = yaxis_value, label = label_values), 
              colour = c("blue", "black")) + 
-  labs(title = "(A)", 
+  labs(title = "(B)", 
        y = bquote('forest loss'~(km^2)))  +
   theme(text = element_text(size = 16), 
         plot.title.position = "plot", 
-        legend.position = "top", legend.box = "horizontal") -> figa_loss_gdp
-figa_loss_gdp
+        legend.position = "top", legend.box = "horizontal") -> figb_loss_gdp
+figb_loss_gdp
 
 #salary
 dfgam %>% 
@@ -123,7 +187,7 @@ dfgam %>%
   geom_label(data = df_mapbiomasall_labels, 
              aes(x= year, y = yaxis_value, label = label_values_salary), 
              colour = c("blue", "black")) + 
-  labs(title = "(B)", 
+  labs(title = "(C)", 
        y = bquote('forest loss'~(km^2)))  +
   theme(text = element_text(size = 16), 
         plot.title.position = "plot", 
@@ -132,8 +196,8 @@ figa_loss_salary
 
 png(file = "figures//fig_loss_gdp_salary.png", 
     bg = "white", type = c("cairo"), 
-    width=5000, height=5300, res = 600)
-gridExtra::grid.arrange(figa_loss_gdp, 
+    width=5000, height=8000, res = 600)
+gridExtra::grid.arrange(figa_loss_gva, figb_loss_gdp, 
                         figa_loss_salary, ncol = 1)
 dev.off()
 
@@ -212,7 +276,8 @@ df_muni_cover40 %>% mutate(trees = "few") %>%
   bind_rows(df_muni_cover60  %>% mutate(trees = "many")) %>% 
   bind_rows(df_muni_cover60less %>% mutate(trees = "many_loss")) -> dfmatched
 
-
+matched_area <- sum(dfmatched$muni_area_km2)
+(matched_area / tot_muni_area_km2) * 100
 #Analysis with matched groups
 #matched subset
 dfgam %>% 
@@ -221,6 +286,32 @@ dfgam_matched$cover_group <- as.factor(dfgam_matched$trees)
 levels(dfgam_matched$cover_group) <- c("forest cover <=40%", 
                                        "forest cover >=60%", 
                                        "forest cover >=60%\nwith loss")
+#Population in 2019
+dfgam_matched %>% 
+  filter(year == 2019) %>% 
+  pull(tot_pop) %>% sum() -> pop_matched_2019 #6885146
+dfgam %>% 
+  filter(year == 2019) %>% 
+  pull(tot_pop) %>% sum() -> pop_total_2019
+
+(pop_matched_2019 / pop_total_2019) * 100
+dfgam_matched %>% 
+  filter(year == 2019) %>% select(muni_factor, tot_pop) %>% 
+  arrange(desc(tot_pop)) 
+
+
+dfgam_matched %>% 
+  filter(!is.na(min_salary_mean)) %>%
+  ggplot(aes(x=year, y=gva_agri_percapita_reais / 3.946)) + 
+  geom_point() + 
+  stat_smooth(method = "lm") + 
+  facet_wrap(~cover_group) + 
+  scale_y_continuous("agriculture GVA per capita (US$)", 
+                     labels = scales::unit_format(unit = "k", 
+                                                  scale = 1e-3)) + 
+  labs(title = "(A)") +
+  theme(plot.title.position = "plot") -> fig_GVA_matched
+fig_GVA_matched
 
 dfgam_matched %>% 
   filter(!is.na(min_salary_mean)) %>%
@@ -231,7 +322,7 @@ dfgam_matched %>%
   scale_y_continuous("GDP per capita (US$)", 
                      labels = scales::unit_format(unit = "k", 
                                                   scale = 1e-3)) + 
-  labs(title = "(A)") +
+  labs(title = "(B)") +
   theme(plot.title.position = "plot") -> fig_GDP_matched
 fig_GDP_matched
 
@@ -242,14 +333,15 @@ dfgam_matched %>%
   stat_smooth(method = "lm") + 
   facet_wrap(~cover_group) + 
   scale_y_continuous("minimum salary") + 
-  labs(title = "(B)") +
+  labs(title = "(C)") +
   theme(plot.title.position = "plot") -> fig_salary_matched
 fig_salary_matched
 #Export
 png(file = "figures//fig_economic_matched.png", 
     bg = "white", type = c("cairo"), 
-    width=3000, height=3000, res = 600)
-grid.arrange(fig_GDP_matched, fig_salary_matched, nrow = 2)
+    width=4000, height=5000, res = 600)
+grid.arrange(fig_GVA_matched, 
+             fig_GDP_matched, fig_salary_matched, ncol = 1)
 dev.off()
 
 #Explain
@@ -267,6 +359,35 @@ summary(aov)
 anova(aov) #marginally significant
 
 myctrl <- list(keepData = TRUE, trace = TRUE)  
+#GVA
+dfgam_matched_model$log_gva_percapita_reais <- log(dfgam_matched_model$gva_agri_percapita_reais)
+bam_loss_gva <- bam(log_gva_percapita_reais ~ 
+                     cover_group +
+                     #Spatial smooth
+                     s(long, lat) + 
+                     #Spatial proximity
+                     s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
+                     #Time
+                     s(year, state_namef, bs='fs', m=1) +
+                     #s(year, by = state_namef) +
+                     s(yearf, bs = "re") +
+                     #Forest loss
+                     s(tot_loss5y_percent, by = cover_group, k=4) +
+                     #Random 
+                     s(state_namef, bs="re") + 
+                     s(muni_factor, bs="re")+ 
+                     s(cover_group, bs="re"), 
+                   #AR1 residual errors
+                   rho=0.874, AR.start = dfgam_matched_model$start_event, 
+                   family=Tweedie(1.99),
+                   method = "fREML",
+                   discrete = TRUE,
+                   data = dfgam_matched_model, 
+                   control = myctrl)   
+summary(bam_loss_gva)
+plot(bam_loss_gva, scale = 0, all.terms = TRUE)
+
+#GDP
 bam_loss_01 <- bam(log_gdp_percapita_reais~ 
                  cover_group +
                  #Spatial smooth
@@ -274,9 +395,11 @@ bam_loss_01 <- bam(log_gdp_percapita_reais~
                  #Spatial proximity
                  s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
                  #Time
-                 s(year, cover_group, bs='fs', m=1) +
+                 s(year, state_namef, bs='fs', m=1) +
                  #s(year, by = state_namef) +
                  s(yearf, bs = "re") +
+                   #Forest loss
+                   s(tot_loss5y_percent, by = cover_group, k=4) +
                  #Random 
                  s(state_namef, bs="re") + 
                  s(muni_factor, bs="re")+ 
@@ -299,9 +422,11 @@ bam_loss_02 <- bam(min_salary_mean ~
                      #Spatial proximity
                      s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
                      #Time
-                     s(year, cover_group, bs='fs', m=1) +
+                     s(year, state_namef, bs='fs', m=1) +
                      #s(year, by = state_namef) +
                      s(yearf, bs = "re") +
+                     #Forest loss
+                     s(tot_loss5y_percent, by = cover_group, k=4) +
                      #Random 
                      s(state_namef, bs="re") + 
                      s(muni_factor, bs="re")+ 
@@ -363,6 +488,12 @@ dev.off()
 #Supplemental material
 #correlations with time varying covariates
 #Pairs panel with human readable names
+pairs_vars_gva <- c('log_gva_percapita_reais', 'tot_loss_km2')
+dfgam %>%
+  select(all_of(pairs_vars_gva)) %>%
+  rename(GVA = log_gva_percapita_reais, forest_loss = tot_loss_km2) %>%
+  psych::pairs.panels()
+
 pairs_vars_gdp <- c('log_gdp_percapita_reais', 'tot_loss_km2')
 dfgam %>%
   select(all_of(pairs_vars_gdp)) %>%
@@ -376,6 +507,33 @@ dfgam %>%
   filter(!is.na(salary)) %>%
   psych::pairs.panels()
 
+# Matched comparisons
+# Median and range for data table
+dfmatched %>% 
+  group_by(trees) %>% 
+  summarise(median_cover_1985 = median(forestcover_1985_percent), 
+            min_cover_1985 = min(forestcover_1985_percent), 
+            max_cover_1985 = max(forestcover_1985_percent)
+            )
+dfmatched %>% 
+  group_by(trees) %>% 
+  summarise(median_cover_2019 = median(tot_forest_cover_2019_percent), 
+            min_cover_2019 = min(tot_forest_cover_2019_percent), 
+            max_cover_2019 = max(tot_forest_cover_2019_percent)
+  )
+dfmatched %>% 
+  group_by(trees) %>% 
+  summarise(total_area = sum(muni_area_km2), 
+            median_area = median(muni_area_km2), 
+            min_area = min(muni_area_km2), 
+            max_area = max(muni_area_km2), 
+            state_count = length(unique(state_name)))
+
+dfmatched %>% 
+  group_by(trees) %>% 
+  summarise(dist = median(dist_statecapital_km), 
+            min_dist = min(dist_statecapital_km), 
+            max_dist = max(dist_statecapital_km))
 
 library(Hmisc)
 png(file = "figures//fig_back2back.png", 
