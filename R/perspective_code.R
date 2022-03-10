@@ -3,9 +3,13 @@
 library(tidyverse)
 library(readxl)
 library(gridExtra)
+library(timetk)
 library(mgcv)
 library(scales)
 library(sf)
+library(rnaturalearthdata)
+library(rnaturalearth)
+library(ggspatial)
 
 #load data
 dfgam <- readRDS("dfgam.rds") #13710 obs. 66 vars
@@ -301,7 +305,13 @@ dfstates <- data.frame(bla_state_names, bla_state_siglas)
 #Municipal polygons
 ibge_muni <- "vector//brazil_ninestate_municipalities//ninestate_muni.shp"
 sf_ninestate_muni <- st_read(ibge_muni) 
-
+# load data
+world <- ne_countries(scale = "medium", returnclass = "sf")
+# gene world map
+ggplot(data = world) +
+  geom_sf() + 
+  coord_sf(xlim = c(-72, -35), ylim = c(-35.00, 4.00), expand = T)
+ 
 projcrs <- st_crs(sf_ninestate_muni)
 sf_matched <- st_as_sf(x = dfmatched,                         
                coords = c("long", "lat"),
@@ -313,6 +323,7 @@ levels(sf_matched$cover_group ) <- c("<=40%",
 
 sf_ninestate_muni %>% 
   ggplot()+ 
+  geom_sf(data = world, fill="cornsilk") +
   geom_sf(aes(fill = SIGLA_UF), 
           color = "black", size = 0.1, show.legend = FALSE) + 
   geom_sf(data = sf_matched, colour="white",  
@@ -320,8 +331,11 @@ sf_ninestate_muni %>%
   geom_sf(data = sf_matched, aes(colour = cover_group, 
                                  shape = cover_group), 
           size = 3) + 
-  coord_sf(crs = 4326, datum = NA) +
+  #coord_sf(crs = 4326, datum = NA) + 
+  coord_sf(xlim = c(-72, -33), ylim = c(-35.00, 4.00), 
+           crs = 4326, expand = T) +
   scale_fill_grey() + 
+  annotation_scale(location = "br", width_hint = 0.5) +
   facet_wrap(~cover_group) +
   theme_bw() + 
   labs(color = 'cover class', shape = 'cover class') + 
@@ -330,7 +344,7 @@ sf_ninestate_muni %>%
         legend.position="top") -> fig_map_studyarea
 #export
 png(file = "figures//fig_map_studyarea.png", bg = "white", type = c("cairo"), 
-    width=8000, height=3000, res = 600)
+    width=8000, height=4000, res = 600)
 fig_map_studyarea
 dev.off()
 
@@ -536,6 +550,192 @@ dev.off()
 #Supplemental material
 #correlations with time varying covariates
 #Pairs panel with human readable names
+pairs_vars_forest <- c('log_gdp_percapita_reais',
+                       'log_gva_percapita_reais', 
+                        'tot_loss_percent','loss_immediate_percent', 
+                       'tot_loss3y_percent','tot_loss5y_percent') 
+dfgam %>%
+  select(all_of(pairs_vars_forest)) %>%
+  rename(GDP = log_gdp_percapita_reais, 
+         GVA = log_gva_percapita_reais, 
+         forest_loss = tot_loss_percent,
+         forest_loss_2y = loss_immediate_percent, 
+         forest_loss_3y = tot_loss3y_percent,
+         forest_loss_5y = tot_loss5y_percent) %>%
+  psych::pairs.panels()
+
+pairs_vars_forestkm <- c('log_gdp_percapita_reais',
+                       'log_gva_percapita_reais', 
+                       'tot_loss_km2','loss_immediate_km2', 
+                       'tot_loss3y_km2','tot_loss5y_km2') 
+
+dfgam %>%
+  select(all_of(pairs_vars_forestkm)) %>%
+  rename(GDP = log_gdp_percapita_reais, 
+         GVA = log_gva_percapita_reais, 
+         forest_loss = tot_loss_km2,
+         forest_loss_2y = loss_immediate_km2, 
+         forest_loss_3y = tot_loss3y_km2,
+         forest_loss_5y = tot_loss5y_km2) %>%
+  psych::pairs.panels()
+
+#Cross correlations
+
+names(dfgam)
+dfgam %>%
+  group_by(state_namef, dist_statecapital_km) %>% 
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = log_gdp_percapita_reais,
+    .ccf_vars = log_gva_percapita_reais, 
+    .lags = 11
+  ) -> tidy_ccf_gdp_agri
+
+#export as .png  250 * 1000
+tidy_ccf_gdp_agri %>% 
+  filter(lag <11) %>%
+  ggplot(aes(x = lag, y = CCF_log_gva_percapita_reais, 
+             color = state_namef, 
+             group = state_namef)) +
+  # Add horizontal line a y=0
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = 0.7, linetype=2) +
+  # Plot autocorrelations
+  geom_point(size = 2) +
+  geom_segment(aes(xend = lag, yend = 0), size = 1) +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10), 
+                     labels = c(0, 2, 4, 6, 8, 10)) +
+  # Add facets
+  facet_wrap(~ state_namef, ncol = 1) +
+  # Aesthetics
+  expand_limits(y = c(-1, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) + labs(
+    title = "Cross Correlation", 
+    subtitle = "GDP and agriculture GVA",
+    x = "lag (year)", 
+    y = "correlation coefficient"
+  )
+
+dfgam %>%
+  group_by(state_namef, dist_statecapital_km) %>% 
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = log_gdp_percapita_reais,
+    .ccf_vars = tot_loss_percent, 
+    .lags = 11
+  ) -> tidy_ccf_gdp_loss
+
+#export as .png  250 * 1000
+tidy_ccf_gdp_loss %>% 
+  filter(lag <11) %>%
+  ggplot(aes(x = lag, y = CCF_tot_loss_percent, 
+             color = state_namef, 
+             group = state_namef)) +
+  # Add horizontal line a y=0
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = 0.7, linetype=2) +
+  # Plot autocorrelations
+  geom_point(size = 2) +
+  geom_segment(aes(xend = lag, yend = 0), size = 1) +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10), 
+                     labels = c(0, 2, 4, 6, 8, 10)) +
+  # Add facets
+  facet_wrap(~ state_namef, ncol = 1) +
+  # Aesthetics
+  expand_limits(y = c(-1, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) + labs(
+    title = "Cross Correlation", 
+    subtitle = "GDP and forest loss",
+    x = "lag (year)", 
+    y = "correlation coefficient"
+  )
+
+dfgam %>%
+  group_by(state_namef, dist_statecapital_km) %>% 
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = log_gdp_percapita_reais,
+    .ccf_vars = loss_immediate_percent, 
+    .lags = 11
+  ) -> tidy_ccf_gdp_immed
+
+
+#export as .png  250 * 1000
+tidy_ccf_gdp_immed %>% 
+  filter(lag <11) %>%
+  ggplot(aes(x = lag, y = CCF_loss_immediate_percent, 
+             color = state_namef, 
+             group = state_namef)) +
+  # Add horizontal line a y=0
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = 0.7, linetype=2) +
+  # Plot autocorrelations
+  geom_point(size = 2) +
+  geom_segment(aes(xend = lag, yend = 0), size = 1) +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10), 
+                     labels = c(0, 2, 4, 6, 8, 10)) +
+  # Add facets
+  facet_wrap(~ state_namef, ncol = 1) +
+  # Aesthetics
+  expand_limits(y = c(-1, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) + labs(
+    title = "Cross Correlation", 
+    subtitle = "GDP and forest loss (2 Y)",
+    x = "lag (year)", 
+    y = "correlation coefficient"
+  )
+
+dfgam %>%
+  group_by(state_namef, dist_statecapital_km) %>% 
+  tk_acf_diagnostics(
+    .date_var = year,
+    .value = log_gdp_percapita_reais,
+    .ccf_vars = tot_loss5y_percent, 
+    .lags = 11
+  ) -> tidy_ccf_gdp_5y
+
+#export as .png  250 * 1000
+tidy_ccf_gdp_5y %>% 
+  filter(lag <11) %>%
+  ggplot(aes(x = lag, y = CCF_tot_loss5y_percent, 
+             color = state_namef, 
+             group = state_namef)) +
+  # Add horizontal line a y=0
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = 0.7, linetype=2) +
+  # Plot autocorrelations
+  geom_point(size = 2) +
+  geom_segment(aes(xend = lag, yend = 0), size = 1) +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10), 
+                     labels = c(0, 2, 4, 6, 8, 10)) +
+  # Add facets
+  facet_wrap(~ state_namef, ncol = 1) +
+  # Aesthetics
+  expand_limits(y = c(-1, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) + labs(
+    title = "Cross Correlation", 
+    subtitle = "GDP and forest loss (5 Y)",
+    x = "lag (year)", 
+    y = "correlation coefficient"
+  )
+
+
 pairs_vars_gva <- c('log_gva_percapita_reais', 'tot_loss_km2')
 dfgam %>%
   select(all_of(pairs_vars_gva)) %>%

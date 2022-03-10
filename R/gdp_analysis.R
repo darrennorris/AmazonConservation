@@ -61,10 +61,6 @@ bla_state_capitals <- data.frame(name_muni = c("Manaus", "Macapá", "Porto Velho
 ) %>% mutate(muni_upper = toupper(name_muni)) %>% 
   mutate(muni_inep = stri_trans_general(muni_upper, "Latin-ASCII"))
 
-#Summary
-summary(df_muni$muni_area_km2)
-df_muni %>% filter(!is.na(forest_2019_km2)) %>% 
-  pull(muni_area_km2) %>% summary()
 
 #models
 #mgcv timeseries
@@ -93,7 +89,11 @@ var_timevary <- c("year","pop_dens_km2", "tot_pop",
 var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per", 
               "lag04_lossarea_per", "lag05_lossarea_per", "lag06_lossarea_per", 
               "lag07_lossarea_per", "lag08_lossarea_per", "lag09_lossarea_per", 
-              "lag10_lossarea_per")
+              "lag10_lossarea_per", 
+              "lag01_lossarea_km2", "lag02_lossarea_km2", "lag03_lossarea_km2", 
+              "lag04_lossarea_km2", "lag05_lossarea_km2", "lag06_lossarea_km2", 
+              "lag07_lossarea_km2", "lag08_lossarea_km2", "lag09_lossarea_km2", 
+              "lag10_lossarea_km2")
 
 df_muni_year %>% 
   filter(!is.na(tot_loss_percent), !is.na(school_per1000), 
@@ -108,6 +108,13 @@ df_muni_year %>%
          tot_loss5y_percent = lag01_lossarea_per + 
            lag02_lossarea_per + lag03_lossarea_per + 
            lag04_lossarea_per + lag05_lossarea_per, 
+         loss_immediate_km2 = tot_loss_km2 + 
+           lag01_lossarea_km2, 
+         tot_loss3y_km2 = lag01_lossarea_km2 + 
+           lag02_lossarea_km2 + lag03_lossarea_km2, 
+         tot_loss5y_km2 = lag01_lossarea_km2 + 
+           lag02_lossarea_km2 + lag03_lossarea_km2 + 
+           lag04_lossarea_km2 + lag05_lossarea_km2,
          adate = as.Date(paste(year,"-01", "-01", sep="")), 
          format = c("%Y-%m-%d")) -> dfgam
 which(is.na(dfgam)[,3]) #salary values
