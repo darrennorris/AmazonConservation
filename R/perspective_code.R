@@ -5,10 +5,13 @@ library(readxl)
 library(gridExtra)
 library(mgcv)
 library(scales)
+library(sf)
 
 #load data
 dfgam <- readRDS("dfgam.rds") #13710 obs. 66 vars
 dfgam$log_gva_percapita_reais <- log(dfgam$gva_agri_percapita_reais)
+
+
 #Add weighted means by total pop of each municipality?
 #GVA agriculture increase over time
 dfgam %>% group_by(year) %>% 
@@ -219,7 +222,7 @@ dfgam %>% filter(forestcover_1985_percent <=30,
 dfgam %>% 
   filter(forestcover_1985_percent <=40, indigenous_area_percent < 50) %>%
   group_by(state_name, muni_name, muni_area_km2, process_gold_p1000,
-           dist_statecapital_km, indigenous_area_percent, 
+           dist_statecapital_km, indigenous_area_percent, long, lat,
            forestcover_1985_percent, tot_forest_cover_2019_percent) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
             median_pop_dens = median(pop_dens_km2), 
@@ -241,7 +244,7 @@ dfgam %>%
          dist_statecapital_km <= 753, muni_area_km2 <= 12535, 
          tot_forest_cover_2019_percent >=60,
          state_name %in% keep_states) %>%
-  group_by(state_name, muni_name, muni_area_km2, 
+  group_by(state_name, muni_name, muni_area_km2, long, lat,
            dist_statecapital_km, indigenous_area_percent, 
            forestcover_1985_percent, tot_forest_cover_2019_percent) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
@@ -259,7 +262,7 @@ dfgam %>%
          dist_statecapital_km <= 753, muni_area_km2 <= 12535, 
          tot_forest_cover_2019_percent <=50,
          state_name %in% keep_states) %>%
-  group_by(state_name, muni_name, muni_area_km2, 
+  group_by(state_name, muni_name, muni_area_km2, long, lat,
            dist_statecapital_km, indigenous_area_percent, 
            forestcover_1985_percent, tot_forest_cover_2019_percent) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
@@ -286,6 +289,51 @@ dfgam_matched$cover_group <- as.factor(dfgam_matched$trees)
 levels(dfgam_matched$cover_group) <- c("forest cover <=40%", 
                                        "forest cover >=60%", 
                                        "forest cover >=60%\nwith loss")
+
+#Study area map showing matched locations
+#Basic reference vectors
+bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
+                     "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
+bla_state_siglas <- c("AC", "AP", "AM", "MA", 
+                      "MT", "PA", "TO", "RO", "RR")
+dfstates <- data.frame(bla_state_names, bla_state_siglas)
+
+#Municipal polygons
+ibge_muni <- "vector//brazil_ninestate_municipalities//ninestate_muni.shp"
+sf_ninestate_muni <- st_read(ibge_muni) 
+
+projcrs <- st_crs(sf_ninestate_muni)
+sf_matched <- st_as_sf(x = dfmatched,                         
+               coords = c("long", "lat"),
+               crs = projcrs)
+sf_matched$cover_group <- as.factor(sf_matched$trees)
+levels(sf_matched$cover_group ) <- c("<=40%", 
+                                       ">=60%", 
+                                       ">=60%\nwith loss")
+
+sf_ninestate_muni %>% 
+  ggplot()+ 
+  geom_sf(aes(fill = SIGLA_UF), 
+          color = "black", size = 0.1, show.legend = FALSE) + 
+  geom_sf(data = sf_matched, colour="white",  
+          size = 3.4,  show.legend = FALSE) +
+  geom_sf(data = sf_matched, aes(colour = cover_group, 
+                                 shape = cover_group), 
+          size = 3) + 
+  coord_sf(crs = 4326, datum = NA) +
+  scale_fill_grey() + 
+  facet_wrap(~cover_group) +
+  theme_bw() + 
+  labs(color = 'cover class', shape = 'cover class') + 
+  theme(text = element_text(size = 20), 
+        plot.title.position = "plot", 
+        legend.position="top") -> fig_map_studyarea
+#export
+png(file = "figures//fig_map_studyarea.png", bg = "white", type = c("cairo"), 
+    width=8000, height=3000, res = 600)
+fig_map_studyarea
+dev.off()
+
 #Population in 2019
 dfgam_matched %>% 
   filter(year == 2019) %>% 
