@@ -101,7 +101,9 @@ df_muni_year %>%
          dist_statecapital_km >0) %>% 
   select(all_of(var_response), all_of(var_timeconstant), all_of(var_timevary), 
          all_of(var_lags)) %>% 
-  mutate(tot_loss3y_percent = lag01_lossarea_per + 
+  mutate(loss_immediate_percent = tot_loss_percent + 
+           lag01_lossarea_per, 
+         tot_loss3y_percent = lag01_lossarea_per + 
            lag02_lossarea_per + lag03_lossarea_per, 
          tot_loss5y_percent = lag01_lossarea_per + 
            lag02_lossarea_per + lag03_lossarea_per + 
