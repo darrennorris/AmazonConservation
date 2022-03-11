@@ -158,6 +158,7 @@ dfgam$main_sectorf <- as.factor(dfgam$main_sector)
 dfgam$dominant_sectorsf <- as.factor(dfgam$dominant_sectors) 
 dfgam$dominant_groupsf <- as.factor(dfgam$dominant_groups)
 dfgam$log_gdp_percapita_reais <- log(dfgam$gdp_percapita_reais)
+dfgam$log_gva_percapita_reais <- log(dfgam$gva_agri_percapita_reais)
 dfgam$gdp_percapita_usd = dfgam$gdp_percapita_reais / 3.946
 dfgam$gva_agri_percapita_usd = dfgam$gva_agri_percapita_reais / 3.946
 

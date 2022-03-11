@@ -12,9 +12,7 @@ library(rnaturalearth)
 library(ggspatial)
 
 #load data
-dfgam <- readRDS("dfgam.rds") #13710 obs. 66 vars
-dfgam$log_gva_percapita_reais <- log(dfgam$gva_agri_percapita_reais)
-
+dfgam <- readRDS("dfgam.rds") #13710 obs. 80 vars
 
 #Add weighted means by total pop of each municipality?
 #GVA agriculture increase over time
@@ -72,7 +70,35 @@ round((tot_loss_km2_02a19 / tot_forestcover_1985_km) * 100, 3) #12.032
 
 
 #Correlations
-cor.test(dfgam$gva_agri_percapita_reais, dfgam$tot_loss_km2) #0.036
+#Annual for overall area
+dfgam %>% 
+  group_by(year) %>%
+  summarise(area = sum(tot_loss_km2, na.rm=TRUE), 
+            gdp = median(gdp_percapita_reais), 
+            gva = median(gva_agri_percapita_reais)) %>%
+  summarise(cor_r_gva = cor.test(gva, area, 
+                                 method = "spearman")$estimate, 
+            cor_r_gdp = cor.test(gdp, area, 
+                                 method = "spearman")$estimate, 
+            cor_p_gva = cor.test(gva, area, 
+                                 method = "spearman")$p.value,
+            cor_p_gdp = cor.test(gdp, area, 
+                                 method = "spearman")$p.value,
+  )
+dfgam %>% 
+  filter(!is.na(min_salary_mean)) %>%
+  group_by(year) %>%
+  summarise(area = sum(tot_loss_km2, na.rm=TRUE), 
+            salary = median(min_salary_mean)) %>%
+  summarise(cor_r_salary = cor.test(salary, area, 
+                                    method = "spearman")$estimate, 
+            cor_p_salary = cor.test(salary, area, 
+                                    method = "spearman")$p.value
+  )
+
+#Annual for municipalities
+c1 <- cor.test(dfgam$gva_agri_percapita_reais, dfgam$tot_loss_km2) 
+c1#0.036
 cor.test(dfgam$gdp_percapita_reais, dfgam$tot_loss_km2) #0.019
 cor.test(dfgam$log_gdp_percapita_reais, dfgam$tot_loss_km2) #0.05301267
 cor.test(dfgam$min_salary_mean, dfgam$tot_loss_km2) #0.1546216
@@ -116,8 +142,8 @@ df_mapbiomasall_labels <- data.frame(year = c(2004, 2019),
                                      label_values_gva = c(round(mapbiomasloss_all_max,0), 
                                                              round(gva_percapita_usd_median_max,0)))
 df_mapbiomasall_labels
-mycols_mapbiomas <- c("savanna" = "deeppink4", 
-                      "forest" = "deeppink")
+#mycols_mapbiomas <- c("savanna" = "deeppink4", 
+#                      "forest" = "deeppink")
 
 dfgam %>% 
   group_by(year) %>% 
@@ -189,7 +215,7 @@ dfgam %>%
   scale_y_continuous(limits = c(0, 50000), 
                      #for the second y-axis
                      sec.axis = sec_axis(~./axis_trans_mapbiomassal,#divided by transformation rate, in order to be represented based on the first y-axis
-                                         name = "salary")) + 
+                                         name = "average salary")) + 
   scale_x_continuous(limits = c(2001.5, 2019.5))  + 
   geom_label(data = df_mapbiomasall_labels, 
              aes(x= year, y = yaxis_value, label = label_values_salary), 
