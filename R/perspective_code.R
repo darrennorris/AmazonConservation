@@ -61,13 +61,12 @@ dfgam %>%
 dfgam %>% 
   group_by(state_name, muni_name, muni_area_km2, forestcover_1985_km2) %>% 
   summarise(acount = n()) %>% ungroup() %>% 
-  pull(forestcover_1985_km2) %>% sum() -> tot_forestcover_1985_km
+  pull(forestcover_1985_km2) %>% sum() -> tot_forestcover_1985_km #4217524
 dfgam %>% pull(tot_loss_km2) %>% sum() -> tot_loss_km2_02a19#507434.7 km2
 #loss in relation to muni area
 round((tot_loss_km2_02a19 / tot_muni_area_km2) * 100, 3) #10.238
 # loss in relation to 1985 forest cover
 round((tot_loss_km2_02a19 / tot_forestcover_1985_km) * 100, 3) #12.032
-
 
 #Correlations
 #Annual for overall area
@@ -76,9 +75,9 @@ dfgam %>%
   summarise(area = sum(tot_loss_km2, na.rm=TRUE), 
             gdp = median(gdp_percapita_reais), 
             gva = median(gva_agri_percapita_reais)) %>%
-  summarise(cor_r_gva = cor.test(gva, area, 
+  summarise(cor_rho_gva = cor.test(gva, area, 
                                  method = "spearman")$estimate, 
-            cor_r_gdp = cor.test(gdp, area, 
+            cor_rho_gdp = cor.test(gdp, area, 
                                  method = "spearman")$estimate, 
             cor_p_gva = cor.test(gva, area, 
                                  method = "spearman")$p.value,
@@ -103,7 +102,7 @@ cor.test(dfgam$gdp_percapita_reais, dfgam$tot_loss_km2) #0.019
 cor.test(dfgam$log_gdp_percapita_reais, dfgam$tot_loss_km2) #0.05301267
 cor.test(dfgam$min_salary_mean, dfgam$tot_loss_km2) #0.1546216
 
-# Figure 1
+# useful values
 dfgam %>% 
   group_by(year) %>%
   summarise(area = sum(tot_loss_km2, na.rm=TRUE)) %>% 
@@ -117,6 +116,7 @@ dfgam %>%
   summarise(area = median(gva_agri_percapita_usd, na.rm=TRUE)) %>% 
   pull(area) %>% max() -> gva_percapita_usd_median_max #628.75
 
+# Figure 1
 axis_trans_mapbiomasgva <- mapbiomasloss_all_max / gva_percapita_usd_median_max
 axis_trans_mapbiomasall <- mapbiomasloss_all_max / gdp_percapita_usd_median_max
 #salary
@@ -253,7 +253,8 @@ dfgam %>%
   filter(forestcover_1985_percent <=40, indigenous_area_percent < 50) %>%
   group_by(state_name, muni_name, muni_area_km2, process_gold_p1000,
            dist_statecapital_km, indigenous_area_percent, long, lat,
-           forestcover_1985_percent, tot_forest_cover_2019_percent) %>% 
+           forestcover_1985_percent, tot_forest_cover_2019_percent, 
+           flag_urbanf) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
             median_pop_dens = median(pop_dens_km2), 
             median_industry = median(gva_industry_percent),
@@ -276,7 +277,8 @@ dfgam %>%
          state_name %in% keep_states) %>%
   group_by(state_name, muni_name, muni_area_km2, long, lat,
            dist_statecapital_km, indigenous_area_percent, 
-           forestcover_1985_percent, tot_forest_cover_2019_percent) %>% 
+           forestcover_1985_percent, tot_forest_cover_2019_percent, 
+           flag_urbanf) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
             median_pop_dens = median(pop_dens_km2),
             median_industry = median(gva_industry_percent),
@@ -294,7 +296,8 @@ dfgam %>%
          state_name %in% keep_states) %>%
   group_by(state_name, muni_name, muni_area_km2, long, lat,
            dist_statecapital_km, indigenous_area_percent, 
-           forestcover_1985_percent, tot_forest_cover_2019_percent) %>% 
+           forestcover_1985_percent, tot_forest_cover_2019_percent, 
+           flag_urbanf) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
             median_pop_dens = median(pop_dens_km2),
             median_industry = median(gva_industry_percent),
@@ -304,13 +307,13 @@ dfgam %>%
          median_pop_dens <=350, 
          median_industry <= 42) %>% 
   ungroup() -> df_muni_cover60less
-
+#310 municipalites in matched subset
 df_muni_cover40 %>% mutate(trees = "few") %>% 
   bind_rows(df_muni_cover60  %>% mutate(trees = "many")) %>% 
   bind_rows(df_muni_cover60less %>% mutate(trees = "many_loss")) -> dfmatched
 
 matched_area <- sum(dfmatched$muni_area_km2)
-(matched_area / tot_muni_area_km2) * 100
+(matched_area / tot_muni_area_km2) * 100 #16.6
 #Analysis with matched groups
 #matched subset
 dfgam %>% 
@@ -420,7 +423,7 @@ dfgam_matched %>%
   geom_point() + 
   stat_smooth(method = "lm") + 
   facet_wrap(~cover_group) + 
-  scale_y_continuous("minimum salary") + 
+  scale_y_continuous("average salary") + 
   labs(title = "(C)") +
   theme(plot.title.position = "plot") -> fig_salary_matched
 fig_salary_matched
@@ -808,6 +811,28 @@ dfmatched %>%
   summarise(dist = median(dist_statecapital_km), 
             min_dist = min(dist_statecapital_km), 
             max_dist = max(dist_statecapital_km))
+
+dfmatched %>% 
+  group_by(trees) %>% 
+  summarise(pop_dens = median(median_pop_dens), 
+            min_pop_dens = min(median_pop_dens), 
+            max_pop_dens = max(median_pop_dens), 
+            industry = median(median_industry), 
+            min_industry = min(median_industry), 
+            max_industry = max(median_industry))
+
+dfmatched %>% 
+  group_by(trees) %>% 
+  summarise(indigenous = median(indigenous_area_percent), 
+            min_indigenous = min(indigenous_area_percent), 
+            max_indigenous = max(indigenous_area_percent), 
+            gold = median(process_gold_p1000), 
+            min_gold = min(process_gold_p1000), 
+            max_gold = max(process_gold_p1000))
+
+dfmatched %>% 
+  group_by(trees, flag_urbanf) %>% 
+  summarise(urban = length(flag_urbanf)) 
 
 library(Hmisc)
 png(file = "figures//fig_back2back.png", 
