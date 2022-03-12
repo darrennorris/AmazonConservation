@@ -436,6 +436,107 @@ grid.arrange(fig_GVA_matched,
 dev.off()
 
 #Explain
+#All municipalities
+colNA <- names(dfgam)[sapply(dfgam, anyNA)]
+dfgam %>% 
+  select(!all_of(colNA)) -> dfgam_gdp
+# values for tweedie and AR1 calculated in "gdp_bams.R"
+dfgam_gdp %>% 
+  arrange(muni_factor, year) %>% 
+  group_by(muni_factor) %>%
+  mutate(start_year = min(year)) %>% 
+  mutate(start_event = year== start_year) %>% 
+  ungroup() -> dfgam_gdp
+
+myctrl <- list(keepData = TRUE, trace = TRUE)  
+#GVA - significant positive
+bam_loss_gvaall <- bam(log_gva_percapita_reais ~ 
+                      #Spatial smooth
+                      s(long, lat) + 
+                      #Spatial proximity
+                      s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
+                      #Time
+                      s(year, state_namef, bs='fs', m=1) +
+                      #s(year, by = state_namef) +
+                      s(yearf, bs = "re") +
+                      #Forest loss
+                        s(loss_immediate_percent, k=4) +
+                      s(tot_loss5y_percent, k=4) +
+                      #Random 
+                      s(state_namef, bs="re") + 
+                      s(muni_factor, bs="re"),
+                    #AR1 residual errors
+                    rho=0.894, AR.start = dfgam_gdp$start_event, 
+                    family=Tweedie(1.99),
+                    method = "fREML",
+                    discrete = TRUE,
+                    data = dfgam_gdp, 
+                    control = myctrl)   
+summary(bam_loss_gvaall)
+plot(bam_loss_gvaall, scale = 0, all.terms = TRUE)
+
+#GDP - 
+bam_loss_gdpall <- bam(log_gdp_percapita_reais ~ 
+                         #Spatial smooth
+                         s(long, lat) + 
+                         #Spatial proximity
+                         s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
+                         #Time
+                         s(year, state_namef, bs='fs', m=1) +
+                         #s(year, by = state_namef) +
+                         s(yearf, bs = "re") +
+                         #Forest loss
+                         s(loss_immediate_percent, k=4) +
+                         s(tot_loss5y_percent, k=4) +
+                         #Random 
+                         s(state_namef, bs="re") + 
+                         s(muni_factor, bs="re"),
+                       #AR1 residual errors
+                       rho=0.894, AR.start = dfgam_gdp$start_event, 
+                       family=Tweedie(1.99),
+                       method = "fREML",
+                       discrete = TRUE,
+                       data = dfgam_gdp, 
+                       control = myctrl)   
+summary(bam_loss_gdpall)
+plot(bam_loss_gvaall, scale = 0, all.terms = TRUE)
+
+#salary 
+dfgam %>% 
+  filter(!is.na(min_salary_mean)) -> dfgam_salary
+# values for tweedie and AR1 calculated in "gdp_bams.R"
+dfgam_salary %>% 
+  arrange(muni_factor, year) %>% 
+  group_by(muni_factor) %>%
+  mutate(start_year = min(year)) %>% 
+  mutate(start_event = year== start_year) %>% 
+  ungroup() -> dfgam_salary
+bam_loss_salaryall <- bam(min_salary_mean ~ 
+                         #Spatial smooth
+                         s(long, lat) + 
+                         #Spatial proximity
+                         s(dist_statecapital_km, state_namef, bs='fs', m=1) + 
+                         #Time
+                         s(year, state_namef, bs='fs', m=1) +
+                         #s(year, by = state_namef) +
+                         s(yearf, bs = "re") +
+                         #Forest loss
+                         s(loss_immediate_percent, k=4) +
+                         s(tot_loss5y_percent, k=4) +
+                         #Random 
+                         s(state_namef, bs="re") + 
+                         s(muni_factor, bs="re"),
+                       #AR1 residual errors
+                       rho=0.874, AR.start = dfgam_salary$start_event, 
+                       family=Tweedie(1.34),
+                       method = "fREML",
+                       discrete = TRUE,
+                       data = dfgam_salary, 
+                       control = myctrl)   
+summary(bam_loss_salaryall)
+plot(bam_loss_salaryall, scale = 0, all.terms = TRUE)
+
+# Matched municipalities
 # values for tweedie and AR1 calculated in "gdp_bams.R"
 dfgam_matched %>% 
   filter(!is.na(min_salary_mean)) %>% 
@@ -545,15 +646,59 @@ df_muni_matched$cover_group <- as.factor(df_muni_matched$trees)
 levels(df_muni_matched$cover_group) <- c("forest cover <=40%", 
                                          "forest cover >=60%", 
                                          "forest cover >=60%\nwith loss")
+# forest cover change and poverty
+dfgam %>% 
+  left_join(df_muni %>% select(state_name, muni_name, 
+                               flag_sanitation_plan, flag_int_complete_cover)) %>%
+  group_by(muni_factor, flag_urban, 
+           forestcover_1985_percent, tot_forest_cover_2019_percent,
+           flag_sanitation_plan, flag_int_complete_cover
+           ) %>% 
+  summarise(acount = n()) %>%
+  rename(urban_flag = flag_urban) %>%
+  mutate(cover_diff = tot_forest_cover_2019_percent - forestcover_1985_percent) %>% 
+  ungroup() -> dfpoverty
+# less than 50% coverage of complete internet connectivity
+dfpoverty %>% 
+  select(muni_factor,urban_flag, flag_sanitation_plan, flag_int_complete_cover, cover_diff) %>%
+  pivot_longer(cols = starts_with("flag")) %>% 
+  mutate(myname = ifelse(name=="flag_sanitation_plan", "sanitation plan", 
+                         "intenet connectivity")) %>%
+  ggplot(aes(x =cover_diff , y = value)) + 
+  geom_jitter(width=0, height = 0.02) + 
+  stat_smooth(method = "glm", family="binomial") +
+  facet_wrap(urban_flag ~ myname) + 
+  labs(x= "forest cover difference (1985 - 2019)")
+
+dfpoverty %>% 
+  select(muni_factor,urban_flag, 
+         flag_sanitation_plan, flag_int_complete_cover, cover_diff) %>%
+  pivot_longer(cols = starts_with("flag")) %>% 
+  mutate(myname = ifelse(name=="flag_sanitation_plan", "sanitation plan", 
+                         "full intenet connectivity")) %>% 
+  filter(!is.na(value)) %>%
+  ggplot(aes(x = factor(value), y = cover_diff, fill = urban_flag)) + 
+  #geom_point(aes(group=urban_flag), 
+  #           position=position_jitterdodge(jitter.width = .05), 
+  #           alpha = 0.2) + 
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) + 
+  scale_x_discrete("condition existed in 2019", labels = c("no", "yes")) + 
+  scale_fill_discrete("urban", labels = c("no", "yes")) +
+  facet_wrap(~ myname, ncol = 1) + 
+  labs(y = "forest cover difference\n(1985 - 2019)") + 
+  labs(title = "(A)") +
+  theme(plot.title.position = "plot") -> fig_essential_cover
+fig_essential_cover
 
 #sanitation
 df_muni_matched %>% 
   ggplot(aes(x = cover_group, y = flag_sanitation_plan)) + 
   geom_violin() +
-  scale_y_continuous("sanitation plan approved", 
+  scale_y_continuous("sanitation plan\napproved", 
                      breaks = c(0,1), labels = c("no", "yes")) +
-  geom_jitter(height = 0.03, width=0.3) + 
-  labs(title = "(A)") +
+  scale_x_discrete(labels = c("<=40%", ">=60%", ">=60%\nwith loss")) +
+  geom_jitter(height = 0.03, width=0.3, alpha=0.3) + 
+  labs(title = "(C)") +
   theme(plot.title.position = "plot", 
         axis.title.x = element_blank()) -> fig_essential_sani
 fig_essential_sani
@@ -561,9 +706,10 @@ fig_essential_sani
 df_muni_matched %>% 
   ggplot(aes(x = cover_group, y = flag_int_complete_cover)) + 
   geom_violin() + 
-  scale_y_continuous("internet connection", 
-                     breaks = c(0,1), labels = c("no", "yes")) +
-  geom_jitter(height = 0.03, width=0.3) +
+  scale_y_continuous("full internet\nconnectivity", 
+                     breaks = c(0,1), labels = c("no", "yes")) + 
+  scale_x_discrete(labels = c("<=40%", ">=60%", ">=60%\nwith loss")) +
+  geom_jitter(height = 0.03, width=0.3, alpha=0.3) +
   labs(title = "(B)") +
   theme(plot.title.position = "plot", 
         axis.title.x = element_blank()) -> fig_essential_inter
@@ -572,9 +718,25 @@ fig_essential_inter
 #Export
 png(file = "figures//fig_essentials_matched.png", 
     bg = "white", type = c("cairo"), 
-    width=3000, height=2800, res = 600)
-grid.arrange(fig_essential_sani, fig_essential_inter, nrow = 2)
+    width=3500, height=2000, res = 600)
+lay <- rbind(c(1,1,2,2),
+             c(1,1,3,3))
+grid.arrange(fig_essential_cover, 
+             fig_essential_inter, fig_essential_sani,
+             layout_matrix = lay)
 dev.off()
+
+#Explain
+# 
+dfpoverty %>% 
+  filter(flag_sanitation_plan ==1, flag_int_complete_cover ==1) %>%
+  pull(muni_factor) %>% as.character() -> muni_prosperous #68
+muni_prosperous / nrow(dfpoverty) * 100 #8.9%
+
+dfgam %>% filter(muni_factor %in% all_of(muni_prosperous)) %>% 
+  group_by(muni_factor, muni_area_km2) %>% summarise(acount = n()) %>% 
+  pull(muni_area_km2) %>% sum() -> prosperous_area
+prosperous_area / tot_muni_area_km2 *100 #9.07%
 
 #Supplemental material
 #correlations with time varying covariates
