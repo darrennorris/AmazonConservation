@@ -10,11 +10,12 @@ library(sf)
 library(rnaturalearthdata)
 library(rnaturalearth)
 library(ggspatial)
-
+# Use weighted means by total pop of each municipality?
 #load data
-dfgam <- readRDS("dfgam.rds") #13710 obs. 80 vars
+dfgam <- readRDS("dfgam.rds") #13710 obs. 81 vars
 
-#Add weighted means by total pop of each municipality?
+
+# Basic summaries ---------------------------------------------------------
 #GVA agriculture increase over time
 dfgam %>% group_by(year) %>% 
   summarise(gva_median_reais = median(gva_agri_percapita_usd * 3.946), 
@@ -102,6 +103,10 @@ cor.test(dfgam$gdp_percapita_reais, dfgam$tot_loss_km2) #0.019
 cor.test(dfgam$log_gdp_percapita_reais, dfgam$tot_loss_km2) #0.05301267
 cor.test(dfgam$min_salary_mean, dfgam$tot_loss_km2) #0.1546216
 
+
+# Useful values -----------------------------------------------------------
+
+
 # useful values
 dfgam %>% 
   group_by(year) %>%
@@ -116,7 +121,9 @@ dfgam %>%
   summarise(area = median(gva_agri_percapita_usd, na.rm=TRUE)) %>% 
   pull(area) %>% max() -> gva_percapita_usd_median_max #628.75
 
-# Figure 1
+
+# Figure 2 ----------------------------------------------------------------
+
 axis_trans_mapbiomasgva <- mapbiomasloss_all_max / gva_percapita_usd_median_max
 axis_trans_mapbiomasall <- mapbiomasloss_all_max / gdp_percapita_usd_median_max
 #salary
@@ -234,6 +241,8 @@ gridExtra::grid.arrange(figa_loss_gva, figb_loss_gdp,
                         figa_loss_salary, ncol = 1)
 dev.off()
 
+
+# Select municipalites ----------------------------------------------------
 # Select municipalities with less and more forest cover
 dfgam %>% 
   group_by(state_name, muni_name, muni_area_km2, 
@@ -322,6 +331,8 @@ dfgam_matched$cover_group <- as.factor(dfgam_matched$trees)
 levels(dfgam_matched$cover_group) <- c("forest cover <=40%", 
                                        "forest cover >=60%", 
                                        "forest cover >=60%\nwith loss")
+
+# Study area map ----------------------------------------------------------
 
 #Study area map showing matched locations
 #Basic reference vectors
@@ -434,6 +445,10 @@ png(file = "figures//fig_economic_matched.png",
 grid.arrange(fig_GVA_matched, 
              fig_GDP_matched, fig_salary_matched, ncol = 1)
 dev.off()
+
+
+# GAM models --------------------------------------------------------------
+
 
 #Explain
 #All municipalities
@@ -634,6 +649,9 @@ summary(bam_loss_02)
 plot(bam_loss_02, scale = 0, all.terms = TRUE)
 
 
+# Other essentials --------------------------------------------------------
+
+
 #4 other essentials to a standard of living
 df_muni <- read_excel("data//bla_municipalities.xlsx", 
                       na = c("", "NA"),
@@ -727,16 +745,31 @@ grid.arrange(fig_essential_cover,
 dev.off()
 
 #Explain
-# 
+# With both internet and sanitation
 dfpoverty %>% 
   filter(flag_sanitation_plan ==1, flag_int_complete_cover ==1) %>%
   pull(muni_factor) %>% as.character() -> muni_prosperous #68
-muni_prosperous / nrow(dfpoverty) * 100 #8.9%
+length(muni_prosperous) / nrow(dfpoverty) * 100 #8.9%
 
 dfgam %>% filter(muni_factor %in% all_of(muni_prosperous)) %>% 
   group_by(muni_factor, muni_area_km2) %>% summarise(acount = n()) %>% 
   pull(muni_area_km2) %>% sum() -> prosperous_area
 prosperous_area / tot_muni_area_km2 *100 #9.07%
+
+#with internet connectivity
+dfpoverty %>% 
+  filter(flag_int_complete_cover ==1) %>%
+  pull(muni_factor) %>% as.character() -> muni_internet #317
+length(muni_internet) / nrow(dfpoverty)
+
+#sanitation plan
+dfpoverty %>% 
+  filter(flag_sanitation_plan ==1) %>%
+  pull(muni_factor) %>% as.character() -> muni_sanitation #154
+length(muni_sanitation) / nrow(dfpoverty) #
+
+# Supplemental material ---------------------------------------------------
+
 
 #Supplemental material
 #correlations with time varying covariates
