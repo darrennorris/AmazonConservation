@@ -788,6 +788,23 @@ dfgam %>%
          forest_loss_5y = tot_loss5y_percent) %>%
   psych::pairs.panels()
 
+pairs_vars_forest_salary <- c('min_salary_mean', 
+                              'log_gdp_percapita_reais',
+                       'log_gva_percapita_reais', 
+                       'tot_loss_percent','loss_immediate_percent', 
+                       'tot_loss3y_percent','tot_loss5y_percent') 
+dfgam %>% 
+  filter(!is.na(min_salary_mean)) %>%
+  select(all_of(pairs_vars_forest_salary)) %>%
+  rename(salary = min_salary_mean, 
+         GDP = log_gdp_percapita_reais, 
+         GVA = log_gva_percapita_reais, 
+         forest_loss = tot_loss_percent,
+         forest_loss_2y = loss_immediate_percent, 
+         forest_loss_3y = tot_loss3y_percent,
+         forest_loss_5y = tot_loss5y_percent) %>%
+  psych::pairs.panels()
+
 pairs_vars_forestkm <- c('log_gdp_percapita_reais',
                        'log_gva_percapita_reais', 
                        'tot_loss_km2','loss_immediate_km2', 
