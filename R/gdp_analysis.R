@@ -74,8 +74,8 @@ var_response <- c("gdp_percapita_reais",
 var_timeconstant <- c("state_name", "muni_name", "muni_area_km2", 
                       "long", "lat" ,"dist_statecapital_km", 
                       "flag_urban", "indigenous_area_percent", 
-                      "forestcover_1985_km2", "forestcover_1985_percent",
-                      "tot_forest_cover_2019_km2", "tot_forest_cover_2019_percent")
+                      "forestcover_1985med_km2", "forestcover_2002med_km2",
+                      "forestcover_2019med_km2")
 var_timevary <- c("year","pop_dens_km2", "tot_pop", 
                   "tot_loss_percent", "tot_loss_km2",
                   "mine_area_km2_construction_percapita", "mine_area_km2_gold_percapita",        
@@ -117,7 +117,7 @@ df_muni_year %>%
            lag04_lossarea_km2 + lag05_lossarea_km2,
          adate = as.Date(paste(year,"-01", "-01", sep="")), 
          format = c("%Y-%m-%d")) -> dfgam
-which(is.na(dfgam)[,3]) #salary values
+which(is.na(dfgam)[,3]) #2043 salary values
 
 #reclassify based on GDP levels
 dfgam %>% 

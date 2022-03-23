@@ -454,19 +454,41 @@ dfmapbiomas_cover_muni <- read_excel("data//Mapbiomas-Brazil-land-cover.xlsx",
                                           .name_repair = "universal") %>% 
   filter(state %in% bla_state_names)
 # cover per municipality
-#
+#1985, 2002, 2019
+dfmapbiomas_cover_muni %>% 
+  filter(level_0 =="Natural",
+         level_2 %in% c("Forest Formation", "Savanna Formation")) %>% 
+  group_by(state, city) %>% 
+  summarise(forestcover_1985_km2 = sum(replace_na(...1985,0))/100, 
+            forestcover_1986_km2 = sum(replace_na(...1986,0))/100, 
+            forestcover_1987_km2 = sum(replace_na(...1987,0))/100,
+            forestcover_2001_km2 = sum(replace_na(...2001,0))/100, 
+            forestcover_2002_km2 = sum(replace_na(...2002,0))/100, 
+            forestcover_2003_km2 = sum(replace_na(...2003,0))/100,
+            forestcover_2018_km2 = sum(replace_na(...2018,0))/100, 
+            forestcover_2019_km2 = sum(replace_na(...2019,0))/100, 
+            forestcover_2020_km2 = sum(replace_na(...2020,0))/100, 
+            ) %>% 
+  ungroup() %>% 
+  rowwise() %>%
+  mutate(forestcover_1985med_km2 = median(c(forestcover_1985_km2, 
+                                  forestcover_1986_km2, 
+                                  forestcover_1987_km2)), 
+         forestcover_2002med_km2 = median(c(forestcover_2001_km2, 
+                                            forestcover_2002_km2, 
+                                            forestcover_2003_km2)), 
+         forestcover_2019med_km2 = median(c(forestcover_2018_km2, 
+                                            forestcover_2019_km2, 
+                                            forestcover_2020_km2))) -> df_muni_cover
+
+
+######
 df_gdppop_muni_02a19 %>% 
   group_by(uf_sigla, uf) %>% 
   summarise(count_muni = length(unique(codmun7))) %>% right_join(
     data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
   ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>% 
-  crossing(year = 2002:2019) %>% left_join(
-    #
-    dfmapbiomas_cover_muni %>% 
-      filter(level_2 %in% c("Forest Formation", "Savanna Formation")) %>% 
-      group_by(state, city) %>% 
-      summarise(forestcover_1985_km2 = sum(replace_na(...1985,0))/100) %>% 
-      ungroup() , 
+  crossing(year = 2002:2019) %>% left_join(df_muni_cover, 
     by = c( "uf" = "state", "NM_MUN" = "city") 
   ) %>% 
   mutate(forestcover_1985_percent = (forestcover_1985_km2 /AREA_KM2)*100) %>% 

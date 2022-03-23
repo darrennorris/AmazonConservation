@@ -12,8 +12,14 @@ library(rnaturalearth)
 library(ggspatial)
 # Use weighted means by total pop of each municipality?
 #load data
-dfgam <- readRDS("dfgam.rds") #13710 obs. 81 vars
-
+dfgam <- readRDS("dfgam.rds") #13710 obs. 80 vars
+dfgam %>% 
+  mutate(forestcover_1985_percent = 
+           (forestcover_1985med_km2 / muni_area_km2)*100, 
+         forestcover_2002_percent = 
+           (forestcover_2002med_km2 / muni_area_km2)*100, 
+         forestcover_2019_percent = 
+           (forestcover_2019med_km2 / muni_area_km2)*100) -> dfgam
 
 # Basic summaries ---------------------------------------------------------
 #GVA agriculture increase over time
@@ -60,14 +66,51 @@ dfgam %>%
   summarise(acount = n()) %>% ungroup() %>% 
   pull(muni_area_km2) %>% sum() -> tot_muni_area_km2 #4956340
 dfgam %>% 
-  group_by(state_name, muni_name, muni_area_km2, forestcover_1985_km2) %>% 
+  group_by(state_name, muni_name, muni_area_km2, 
+           forestcover_1985med_km2) %>% 
   summarise(acount = n()) %>% ungroup() %>% 
-  pull(forestcover_1985_km2) %>% sum() -> tot_forestcover_1985_km #4217524
+  pull(forestcover_1985med_km2) %>% sum() -> tot_forestcover_1985_km #4217524
 dfgam %>% pull(tot_loss_km2) %>% sum() -> tot_loss_km2_02a19#507434.7 km2
 #loss in relation to muni area
 round((tot_loss_km2_02a19 / tot_muni_area_km2) * 100, 3) #10.238
 # loss in relation to 1985 forest cover
-round((tot_loss_km2_02a19 / tot_forestcover_1985_km) * 100, 3) #12.032
+round((tot_loss_km2_02a19 / tot_forestcover_1985_km) * 100, 3) #12.016
+forestcover_1985med_km2
+#Loss 1985 - 2019 as % of municipality area
+dfgam %>% 
+  filter(year==2019, !is.na(forestcover_1985med_km2)) %>% 
+  mutate(loss_1985_2019_per = 
+          forestcover_2019_percent - forestcover_1985_percent, 
+        state_namef = fct_reorder(state_name, loss_1985_2019_per, mean) 
+        ) %>%
+  select(state_namef, state_name, muni_name, muni_area_km2, loss_1985_2019_per) %>% 
+  ggplot(aes(loss_1985_2019_per)) + 
+  geom_bar(aes(weight = muni_area_km2, fill = state_namef)) + 
+  scale_y_continuous(labels = scales::unit_format(unit = "M", 
+                                                 scale = 1e-6)) +
+  scale_x_binned()+ 
+  scale_fill_viridis_d("state") + 
+  labs(x = "forest cover change 1985 to 2019\n(% of 1985 forest area)", 
+       y = bquote('municipality area'~(km^2)))
+
+#Loss 2002 - 2019 as % of municipality area
+dfgam %>% 
+  filter(year==2019, !is.na(forestcover_1985med_km2)) %>% 
+  select(state_name, muni_name, muni_area_km2, 
+         forestcover_2019_percent, forestcover_2002_percent) %>% 
+  mutate(loss_2002_2019_per = 
+           forestcover_2019_percent - forestcover_2002_percent, 
+         state_namef = fct_reorder(state_name, loss_2002_2019_per, mean) 
+  ) %>%
+  ggplot(aes(loss_2002_2019_per)) + 
+  geom_bar(aes(weight = muni_area_km2, fill = state_namef)) + 
+  scale_y_continuous(labels = scales::unit_format(unit = "M", 
+                                                  scale = 1e-6)) +
+  scale_x_binned()+ 
+  scale_fill_viridis_d("state") + 
+  labs(x = "forest cover change 2002 to 2019\n(% of 1985 forest area)", 
+       y = bquote('municipality area'~(km^2)))
+
 
 #Correlations
 #Annual for overall area
@@ -246,23 +289,23 @@ dev.off()
 # Select municipalities with less and more forest cover
 dfgam %>% 
   group_by(state_name, muni_name, muni_area_km2, 
-           forestcover_1985_km2, forestcover_1985_percent) %>% 
+           forestcover_1985med_km2, forestcover_1985_percent) %>% 
   summarise(acount = n()) %>% ungroup() %>% 
   pull(forestcover_1985_percent) %>% hist()
 
 # 54 municipalities with low cover in 1985
 dfgam %>% filter(forestcover_1985_percent <=40, 
                  indigenous_area_percent < 50) %>%
-  pull(muni_factor) %>% as.character() %>% unique() -> n40#54
+  pull(muni_factor) %>% as.character() %>% unique() -> n40#57
 dfgam %>% filter(forestcover_1985_percent <=30, 
                  indigenous_area_percent < 50) %>%
-  pull(muni_factor) %>% as.character() %>% unique() -> n30#28
+  pull(muni_factor) %>% as.character() %>% unique() -> n30#27
 
 dfgam %>% 
   filter(forestcover_1985_percent <=40, indigenous_area_percent < 50) %>%
   group_by(state_name, muni_name, muni_area_km2, process_gold_p1000,
            dist_statecapital_km, indigenous_area_percent, long, lat,
-           forestcover_1985_percent, tot_forest_cover_2019_percent, 
+           forestcover_1985_percent, forestcover_2019_percent, 
            flag_urbanf) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
             median_pop_dens = median(pop_dens_km2), 
@@ -271,22 +314,22 @@ dfgam %>%
 keep_states <- unique(df_muni_cover40$state_name) 
 # "Amapá"       "Amazonas"    "Maranhão"    "Mato Grosso" "Pará"       
  #[6] "Roraima"     "Tocantins" 
-summary(df_muni_cover40$dist_statecapital_km) #25 - 753 km 187 median
-summary(df_muni_cover40$muni_area_km2) # #79 - 12535 km2 median 1201
+summary(df_muni_cover40$dist_statecapital_km) #25 - 753 km 193 median
+summary(df_muni_cover40$muni_area_km2) # #79 - 12535 km2 median 1124
 summary(df_muni_cover40$indigenous_area_percent) # mean = 0.8, max = 21
 summary(df_muni_cover40$median_gold_p1000) #0
-summary(df_muni_cover40$median_pop_dens) # median = 11, max = 334
-summary(df_muni_cover40$median_industry) # median = 4.6, max = 41.5
+summary(df_muni_cover40$median_pop_dens) # median = 11.7, max = 334
+summary(df_muni_cover40$median_industry) # median = 4.6, max = 56.9
 
-# 132
+# 137
 dfgam %>% 
   filter(forestcover_1985_percent >=60, indigenous_area_percent <= 21, 
          dist_statecapital_km <= 753, muni_area_km2 <= 12535, 
-         tot_forest_cover_2019_percent >=60,
+         forestcover_2019_percent >=60,
          state_name %in% keep_states) %>%
   group_by(state_name, muni_name, muni_area_km2, long, lat,
            dist_statecapital_km, indigenous_area_percent, 
-           forestcover_1985_percent, tot_forest_cover_2019_percent, 
+           forestcover_1985_percent, forestcover_2019_percent, 
            flag_urbanf) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
             median_pop_dens = median(pop_dens_km2),
@@ -297,15 +340,15 @@ dfgam %>%
          median_pop_dens <=350, 
          median_industry <= 42) %>% 
   ungroup() -> df_muni_cover60
-# <= 50%, 124
+# <= 50%, 122
 dfgam %>% 
   filter(forestcover_1985_percent >=60, indigenous_area_percent <= 21, 
          dist_statecapital_km <= 753, muni_area_km2 <= 12535, 
-         tot_forest_cover_2019_percent <=50,
+         forestcover_2019_percent <=50,
          state_name %in% keep_states) %>%
   group_by(state_name, muni_name, muni_area_km2, long, lat,
            dist_statecapital_km, indigenous_area_percent, 
-           forestcover_1985_percent, tot_forest_cover_2019_percent, 
+           forestcover_1985_percent, forestcover_2019_percent, 
            flag_urbanf) %>% 
   summarise(median_gold_p1000 = median(process_gold_p1000), 
             median_pop_dens = median(pop_dens_km2),
@@ -322,7 +365,7 @@ df_muni_cover40 %>% mutate(trees = "few") %>%
   bind_rows(df_muni_cover60less %>% mutate(trees = "many_loss")) -> dfmatched
 
 matched_area <- sum(dfmatched$muni_area_km2)
-(matched_area / tot_muni_area_km2) * 100 #16.6
+(matched_area / tot_muni_area_km2) * 100 #16.96
 #Analysis with matched groups
 #matched subset
 dfgam %>% 
@@ -669,12 +712,12 @@ dfgam %>%
   left_join(df_muni %>% select(state_name, muni_name, 
                                flag_sanitation_plan, flag_int_complete_cover)) %>%
   group_by(muni_factor, flag_urban, 
-           forestcover_1985_percent, tot_forest_cover_2019_percent,
+           forestcover_1985_percent, forestcover_2019_percent,
            flag_sanitation_plan, flag_int_complete_cover
            ) %>% 
   summarise(acount = n()) %>%
   rename(urban_flag = flag_urban) %>%
-  mutate(cover_diff = tot_forest_cover_2019_percent - forestcover_1985_percent) %>% 
+  mutate(cover_diff = forestcover_2019_percent - forestcover_1985_percent) %>% 
   ungroup() -> dfpoverty
 # less than 50% coverage of complete internet connectivity
 dfpoverty %>% 
@@ -1006,9 +1049,9 @@ dfmatched %>%
             )
 dfmatched %>% 
   group_by(trees) %>% 
-  summarise(median_cover_2019 = median(tot_forest_cover_2019_percent), 
-            min_cover_2019 = min(tot_forest_cover_2019_percent), 
-            max_cover_2019 = max(tot_forest_cover_2019_percent)
+  summarise(median_cover_2019 = median(forestcover_2019_percent), 
+            min_cover_2019 = min(forestcover_2019_percent), 
+            max_cover_2019 = max(forestcover_2019_percent)
   )
 dfmatched %>% 
   group_by(trees) %>% 
@@ -1066,8 +1109,8 @@ histbackback(df_muni_cover40$indigenous_area_percent,
 histbackback(df_muni_cover40$median_industry, 
              df_muni_cover60$median_industry, probability=TRUE, 
              xlab = c("<=40",">=60"), main = "industry  value contribution (%)")
-histbackback(df_muni_cover40$tot_forest_cover_2019_percent, 
-             df_muni_cover60$tot_forest_cover_2019_percent, probability=TRUE, 
+histbackback(df_muni_cover40$forestcover_2019_percent, 
+             df_muni_cover60$forestcover_2019_percent, probability=TRUE, 
              xlab = c("<=40",">=60"), main = "forest cover 2019 (%)") 
 dev.off()
 
@@ -1091,7 +1134,7 @@ histbackback(df_muni_cover40$indigenous_area_percent,
 histbackback(df_muni_cover40$median_industry, 
              df_muni_cover60less$median_industry, probability=TRUE, 
              xlab = c("<=40",">=60 loss"), main = "industry  value contribution (%)")
-histbackback(df_muni_cover40$tot_forest_cover_2019_percent, 
-             df_muni_cover60less$tot_forest_cover_2019_percent, probability=TRUE, 
+histbackback(df_muni_cover40$forestcover_2019_percent, 
+             df_muni_cover60less$forestcover_2019_percent, probability=TRUE, 
              xlab = c("<=40",">=60 loss"), main = "forest cover 2019 (%)") 
 dev.off()
