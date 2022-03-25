@@ -465,6 +465,9 @@ dfmapbiomas_cover_muni %>%
             forestcover_2001_km2 = sum(replace_na(...2001,0))/100, 
             forestcover_2002_km2 = sum(replace_na(...2002,0))/100, 
             forestcover_2003_km2 = sum(replace_na(...2003,0))/100,
+            forestcover_2011_km2 = sum(replace_na(...2011,0))/100,
+            forestcover_2012_km2 = sum(replace_na(...2012,0))/100, 
+            forestcover_2013_km2 = sum(replace_na(...2013,0))/100, 
             forestcover_2018_km2 = sum(replace_na(...2018,0))/100, 
             forestcover_2019_km2 = sum(replace_na(...2019,0))/100, 
             forestcover_2020_km2 = sum(replace_na(...2020,0))/100, 
@@ -477,12 +480,14 @@ dfmapbiomas_cover_muni %>%
          forestcover_2002med_km2 = median(c(forestcover_2001_km2, 
                                             forestcover_2002_km2, 
                                             forestcover_2003_km2)), 
+         forestcover_2012med_km2 = median(c(forestcover_2011_km2, 
+                                            forestcover_2012_km2, 
+                                            forestcover_2013_km2)), 
          forestcover_2019med_km2 = median(c(forestcover_2018_km2, 
                                             forestcover_2019_km2, 
                                             forestcover_2020_km2))) -> df_muni_cover
 
-
-######
+# Export
 df_gdppop_muni_02a19 %>% 
   group_by(uf_sigla, uf) %>% 
   summarise(count_muni = length(unique(codmun7))) %>% right_join(
@@ -491,8 +496,16 @@ df_gdppop_muni_02a19 %>%
   crossing(year = 2002:2019) %>% left_join(df_muni_cover, 
     by = c( "uf" = "state", "NM_MUN" = "city") 
   ) %>% 
-  mutate(forestcover_1985_percent = (forestcover_1985_km2 /AREA_KM2)*100) %>% 
+  mutate(forestcover_1985_percent_muni = (forestcover_1985_km2 /AREA_KM2)*100, 
+         forestcover_2002_percent_muni = (forestcover_2002_km2 /AREA_KM2)*100, 
+         forestcover_2012_percent_muni = (forestcover_2012_km2 /AREA_KM2)*100,
+         forestcover_2019_percent_muni = (forestcover_2019_km2 /AREA_KM2)*100, 
+         forestcover_2002_percent_85 = (forestcover_2002_km2 /forestcover_1985_km2)*100, 
+         forestcover_2012_percent_85 = (forestcover_2012_km2 /forestcover_1985_km2)*100, 
+         forestcover_2019_percent_85 = (forestcover_2019_km2 /forestcover_1985_km2)*100) %>% 
   arrange(uf_sigla, NM_MUN) %>% 
+  #filter(year==2019) %>%
+  #write.csv("muni_fixedcover.csv", row.names = FALSE)
   write.csv("muni_fixedcover_year.csv", row.names = FALSE)
 
 #Forest loss

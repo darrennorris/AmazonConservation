@@ -390,10 +390,10 @@ ibge_muni <- "vector//brazil_ninestate_municipalities//ninestate_muni.shp"
 sf_ninestate_muni <- st_read(ibge_muni) 
 # load data
 world <- ne_countries(scale = "medium", returnclass = "sf")
-# gene world map
-ggplot(data = world) +
-  geom_sf() + 
-  coord_sf(xlim = c(-72, -35), ylim = c(-35.00, 4.00), expand = T)
+#  world map
+#ggplot(data = world) +
+#  geom_sf() + 
+#  coord_sf(xlim = c(-72, -35), ylim = c(-35.00, 4.00), expand = T)
  
 projcrs <- st_crs(sf_ninestate_muni)
 sf_matched <- st_as_sf(x = dfmatched,                         
@@ -439,7 +439,7 @@ dfgam %>%
   filter(year == 2019) %>% 
   pull(tot_pop) %>% sum() -> pop_total_2019
 
-(pop_matched_2019 / pop_total_2019) * 100
+(pop_matched_2019 / pop_total_2019) * 100 # 34.3
 dfgam_matched %>% 
   filter(year == 2019) %>% select(muni_factor, tot_pop) %>% 
   arrange(desc(tot_pop)) 
@@ -1043,7 +1043,9 @@ dfgam %>%
 # Median and range for data table
 dfmatched %>% 
   group_by(trees) %>% 
-  summarise(median_cover_1985 = median(forestcover_1985_percent), 
+  summarise(count_muni = n(), 
+            count_states = length(unique(state_name)),
+            median_cover_1985 = median(forestcover_1985_percent), 
             min_cover_1985 = min(forestcover_1985_percent), 
             max_cover_1985 = max(forestcover_1985_percent)
             )
@@ -1081,9 +1083,9 @@ dfmatched %>%
   summarise(indigenous = median(indigenous_area_percent), 
             min_indigenous = min(indigenous_area_percent), 
             max_indigenous = max(indigenous_area_percent), 
-            gold = median(process_gold_p1000), 
-            min_gold = min(process_gold_p1000), 
-            max_gold = max(process_gold_p1000))
+            gold = median(median_gold_p1000, na.rm = TRUE), 
+            min_gold = min(median_gold_p1000), 
+            max_gold = max(median_gold_p1000, na.rm = TRUE))
 
 dfmatched %>% 
   group_by(trees, flag_urbanf) %>% 
