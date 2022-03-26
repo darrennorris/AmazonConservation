@@ -61,7 +61,10 @@ df_muni_tif_MA %>%
 df_muni_tif %>% 
   filter(SIGLA_UF =="TO", NM_MUN == "Tabocão") %>% 
   data.frame() -> df_muni_tif_TO
-#23:22
+df_muni_tif %>% 
+  filter(SIGLA_UF =="AP") %>% 
+  data.frame() -> df_muni_tif_AP
+#7:07
 mapbiomas_summary <- function(x){
 
 muni_code <- x$CD_MUN
