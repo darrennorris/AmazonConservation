@@ -11,40 +11,63 @@
 #'
 #' @return A text file with annual totals for cover classes. 
 #' Also a text log file with process timing. Text files are tab separated.
-#'  
-#' @export
+#' 
+#' @import sf
+#' @import plyr
+#' @import tidyverse
+#' @import magrittr
+#'   
+#' @export 
 #'
 #' @examples
 #' \dontrun{
 #' #1) fairly efficient for areas < 6000 km2
+#' # memory.limit() # might need to increase when working with large polygons.
 #' #run function
 #' plyr::ddply(dfmulti, .(SIGLA_UF, NM_MUN),
 #'             .fun = mapbiomas_summary_calc, large_polygon = sf_munis)
 #' #a_dply version. time is same ddply in a small test 
 #' #plyr::a_ply(dfmulti, .margins = 1, 
 #' .fun = mapbiomas_summary_calc, large_polygon = sf_munis)
-#'             
+#' 
+#' #parallel example
+#' library(doParallel)
+#' ## number of cores
+#' cores <- detectCores()
+#' ## register
+#' registerDoParallel(cores=cores)
+#' #run 
+#' plyr::ddply(dfmulti, .(SIGLA_UF, NM_MUN),
+#'             .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
+#'             .parallel = TRUE)            
 #' }
 mapbiomas_summary_calc <- function(x, large_polygon = NA){
+  library(plyr)
+  library(magrittr)
+  library(tidyverse)
+  library(terra)
+  library(sf)
+  #do stuff
   time_start <- Sys.time()
   polygon_id <- x$CD_MUN[1]
   rin <- x$tif_files
-  rtest <- rast(rin)
-  #cover_name <- names(rtest)
-  #ayear <- substr(cover_name, 17, 20)
-  
+  rtest <- terra::rast(rin)
+  # subset large to small polygon. Ensure same CRS.
   large_polygon %>% filter(CD_MUN == polygon_id) %>% 
     st_transform(crs = crs(rtest)) -> sf_muni
+  #Crop and mask
   e2 <- ext(vect(sf_muni))
-  rtest_mask <- mask(x = crop(rtest, e2), mask = vect(sf_muni))
+  rtest_mask <- mask(x = crop(rtest, e2), 
+                            mask = vect(sf_muni))
   NAflag(rtest_mask) <- 0
   
-  #calculate area of different cover classes
+  #calculate area of different cover classes. Cell size for lat/long cells.
   #Unique cover class values from all years
-  cvals <- unique(na.omit(c(as.matrix(unique(rtest_mask)))))
+  class_vec <- as.numeric(na.omit(c(as.matrix(terra::unique(rtest_mask)))))
+  cvals <- unique(class_vec)
   dfcvals <- data.frame(class_values = cvals, class_ref = cvals)
   #Fuction to seperatte classes and sum area
-  cover_sum <- function(x, rast_stack = rtest_mask){
+  cover_sum <- function(x, rast_stack = NA){
     myclass <- x$class_ref
     myclass_low <- myclass -1
     myclass_high <- myclass +1
@@ -63,7 +86,8 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
                           area_ha = sum/10000) %>% data.frame() -> class_area
     class_area
   }
-  dfcover <- ddply(dfcvals, .(class_values), .fun = cover_sum)
+  dfcover <- ddply(dfcvals, .(class_values), .fun = cover_sum, 
+                   rast_stack = rtest_mask)
   rm("rtest_mask")
   rm("large_polygon")
   rm("sf_muni")
