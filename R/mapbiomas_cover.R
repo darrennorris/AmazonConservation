@@ -23,6 +23,22 @@ data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF, AREA_KM2) %>%
   mutate(ayear = str_sub(tif_files,-8,-5)) %>% 
   mutate(aid = paste(CD_MUN, ayear, sep = "_")) %>% 
   data.frame() -> df_muni_tif
+
+#Missing cover data
+missing_munis <- c("2100105", "2100154", "2100303", "2100808", "2100907", 
+                   "2101509", "2101707", "2101731", "2102101", "2102200",
+                   "2103000", "2103208", "2103406", "2103901", "2105005",
+                   "2105922", "2106300", "2106409", "2106607", "2106672",
+                   "2107803", "2108058", "2109403", "2110104", "2110237", 
+                   "2110278", "2110401", "2110609", "2110906", "2111102", 
+                   "2111953", "2112209", "2112506", "2112605", "1708254"
+                   )
+
+df_muni_tif %>% 
+  filter(CD_MUN %in% all_of(missing_munis)) %>% 
+  arrange(desc(AREA_KM2), ayear) %>%
+  data.frame() -> df_muni_missing 
+df_muni_missing %>% pull(AREA_KM2) %>% unique() %>% sort()
 #df_muni_tif %>% 
 #  filter(SIGLA_UF =="MA") %>% data.frame() -> df_muni_tif_MA 
 #df_muni_tif_MA %>% 
