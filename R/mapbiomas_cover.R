@@ -53,7 +53,7 @@ cores
 registerDoParallel(cores=cores)
 source("R/mapbiomas_summary_calc.R")
 #run 
-plyr::a_ply(df_muni_tif_TO, .margins = 1,
+plyr::a_ply(dfmulti, .margins = 1,
              .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
              .parallel = TRUE)            
 
