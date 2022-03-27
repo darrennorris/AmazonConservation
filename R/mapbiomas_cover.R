@@ -64,7 +64,7 @@ df_muni_tif %>%
 df_muni_tif %>% 
   filter(SIGLA_UF =="AP") %>% 
   data.frame() -> df_muni_tif_AP
-#7:07
+#7:08
 mapbiomas_summary <- function(x){
 
 muni_code <- x$CD_MUN
@@ -104,7 +104,7 @@ write.table(dfout, "mapbiomas_cover.txt", col.names = FALSE,
             write.table(dfout, "mapbiomas_cover.txt", row.names = FALSE)
             }
 }
-plyr::a_ply(df_muni_tif_MA_priority, .margins = 1, .fun = mapbiomas_summary)
+plyr::a_ply(df_muni_tif_AP, .margins = 1, .fun = mapbiomas_summary)
 
 #OK
 plot(crop(rast("E:\\mapbiomas\\brasil_coverage_1985.tif"), e1))
