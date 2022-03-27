@@ -14,6 +14,14 @@ df_muni_year <- read_excel("data//bla_municipalities.xlsx",
                       na = c("", "NA"),
                       sheet = "municipality_annual",
                       .name_repair = "universal")
+
+#list with missing mapbiomas
+df_muni_year %>% 
+  filter(is.na(forestcover_2002_percent_muni)) %>% 
+  group_by(state_name, muni_name, muni_code) %>% 
+  summarise(acount = n()) %>% data.frame() %>% 
+  pull(muni_code) %>% as.character()
+
 #include presidents to sgregate timeseries
 #presidents https://en.wikipedia.org/wiki/List_of_presidents_of_Brazil
 pres_names <- c("Collor do Mello", "Franco", "Cardoso", "Lula", 
