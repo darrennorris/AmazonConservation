@@ -8,7 +8,7 @@
 #' 
 #' @description Provides a summary of land cover using annual Mapbiomas coverage. 
 #' This function serves as a code template and 
-#' could be adapted for polygons of farms and river basins
+#' could be adapted for polygons of farms and river basins.
 #'
 #' @return A text file with annual totals for cover classes. 
 #' Also a text log file with process timing. Text files are .csv.
