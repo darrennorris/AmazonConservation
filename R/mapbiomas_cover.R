@@ -41,6 +41,18 @@ df_muni_tif %>%
   data.frame() -> df_muni_tif_AF
 
 dfmulti <- rbind(df_muni_tif_TO, df_muni_tif_AF)
+#parallel example
+library(doParallel)
+## number of cores
+cores <- detectCores()
+cores
+## register
+registerDoParallel(cores=cores)
+source("R/mapbiomas_summary_calc.R")
+#run 
+plyr::a_ply(df_muni_tif_TO, .margins = 1,
+             .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
+             .parallel = TRUE)            
 
 
 # missing municipality list -----------------------------------------------
