@@ -1,7 +1,7 @@
 
 #' Title
 #' 
-#' @title Land cover summary using MapBiomas.
+#' @title Land cover area summary using MapBiomas.
 #' @param x Dataframe including locations for raster files.
 #' @param large_polygon Sf object holding spatial polygons.
 #' 
@@ -73,19 +73,23 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
   #Fuction to seperatte classes and sum area
   cover_sum <- function(x, rast_stack = NA){
     myclass <- x$class_ref
-    myclass_low <- myclass -1
-    myclass_high <- myclass +1
+    myclass_low <- myclass -0.1
+    myclass_high <- myclass +0.1
     m <- c(-Inf, myclass_low, NA,
            myclass-0.1, myclass+0.1, 1,
            myclass_high, Inf, NA)
     rclmat <- matrix(m, ncol=3, byrow=TRUE)
+    rclmat <- matrix(m, ncol=3, byrow=TRUE)
     rclass <- classify(rast_stack, rclmat, include.lowest = FALSE, 
                        right=FALSE)
-    astack <- rclass*cellSize(rast_stack[[1]])
+    rm("rast_stack")
+    astack <- rclass*cellSize(rclass[[1]])
     
     #sum
     class_area <- global(astack, fun="sum",  na.rm=TRUE)
     class_area$tif_ref <- row.names(class_area)
+    rm("astack")
+    rm("rclass")
     row.names(class_area) <- NULL
     class_area %>% mutate(year = substr(tif_ref,17,20), 
                           area_ha = sum/10000) %>% data.frame() -> class_area
