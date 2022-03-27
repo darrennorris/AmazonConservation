@@ -57,6 +57,14 @@ plyr::a_ply(df_muni_tif_TO, .margins = 1,
              .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
              .parallel = TRUE)            
 
+read.csv("mapbiomas_cover_log.csv") %>% 
+  group_by(CD_MUN, AREA_KM2) %>% 
+  summarise(time_minutes = sum(time_taken_min)) #1.82 i.e 24 hours for 800
+#Make total same across years
+read.csv("mapbiomas_cover.csv") %>% 
+  group_by(CD_MUN, year) %>% summarise(tot_ha = sum(area_ha)) %>% 
+  arrange(desc(tot_ha))
+
 #to help checking
 lapply(, mapbiomas_summary_calc, large_polygon = sf_munis)
 

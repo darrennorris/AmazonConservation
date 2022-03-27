@@ -105,10 +105,15 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
   #Export 
   # all names (x$.....) need manual updates 
   # to be consistent with columns in the input
-  if(file.exists("mapbiomas_cover.txt")){
-    write.table(dfout, "mapbiomas_cover.txt", col.names = FALSE, 
-                row.names = FALSE, append = TRUE)}else{ 
-                  write.table(dfout, "mapbiomas_cover.txt", row.names = FALSE)
+  if(file.exists("mapbiomas_cover.csv")){
+    write.table(dfout, "mapbiomas_cover.csv", 
+              sep = ",",
+              dec = ".", col.names = FALSE,
+              row.names = FALSE, append = TRUE)}else{ 
+                  write.table(dfout, "mapbiomas_cover.csv", 
+                              sep = ",",
+                              dec = ".",
+                              row.names = FALSE)
                 }
   
   #log file
@@ -120,10 +125,14 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
                           adt_start = time_start)
   
   #Export log
-  if(file.exists("mapbiomas_cover_log.txt")){
-    write.table(dfout_log, "mapbiomas_cover_log.txt", col.names = FALSE, 
+  if(file.exists("mapbiomas_cover_log.csv")){
+    write.table(dfout_log, "mapbiomas_cover_log.csv", 
+                sep = ",",
+                dec = ".", col.names = FALSE,
                 row.names = FALSE, append = TRUE)}else{ 
-                  write.table(dfout_log, "mapbiomas_cover_log.txt", 
+                  write.table(dfout_log, "mapbiomas_cover_log.csv", 
+                            sep = ",",
+                            dec = ".", 
                               row.names = FALSE)
                 }
 }
