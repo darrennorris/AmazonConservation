@@ -42,12 +42,16 @@
 #'             .parallel = TRUE)            
 #' }
 mapbiomas_summary_calc <- function(x, large_polygon = NA){
+  #packages
   library(plyr)
   library(magrittr)
   library(tidyverse)
   library(terra)
   library(sf)
-  #do stuff
+  
+  # all names (x$.....) need manual updates 
+  # to be consistent with columns in the input
+  # do stuff
   time_start <- Sys.time()
   polygon_id <- x$CD_MUN[1]
   rin <- x$tif_files
@@ -99,6 +103,8 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
     arrange(class_values) %>% data.frame() -> dfout
   
   #Export 
+  # all names (x$.....) need manual updates 
+  # to be consistent with columns in the input
   if(file.exists("mapbiomas_cover.txt")){
     write.table(dfout, "mapbiomas_cover.txt", col.names = FALSE, 
                 row.names = FALSE, append = TRUE)}else{ 

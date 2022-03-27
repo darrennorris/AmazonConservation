@@ -23,9 +23,12 @@ sf_munis <- sf::st_read(longname)
 #annual coverage
 #"1600303"
 # zeros are NA http://forum.mapbiomas.ecostage.com.br/t/pixels-com-valor-zero/170/5
-tif_files <- list.files("G:/mapbiomas", pattern = ".tif", full.names = TRUE)
-data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF) %>% 
-  crossing(tif_files) %>% data.frame() -> df_muni_tif
+tif_files <- list.files("E:/mapbiomas", pattern = ".tif", full.names = TRUE)
+data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF, AREA_KM2) %>% 
+  crossing(tif_files) %>% 
+  mutate(ayear = str_sub(tif_files,-8,-5)) %>% 
+  mutate(aid = paste(CD_MUN, ayear, sep = "_")) %>% 
+  data.frame() -> df_muni_tif
 #df_muni_tif %>% 
 #  filter(SIGLA_UF =="MA") %>% data.frame() -> df_muni_tif_MA 
 #df_muni_tif_MA %>% 
@@ -54,6 +57,8 @@ plyr::a_ply(df_muni_tif_TO, .margins = 1,
              .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
              .parallel = TRUE)            
 
+#to help checking
+lapply(, mapbiomas_summary_calc, large_polygon = sf_munis)
 
 # missing municipality list -----------------------------------------------
 
