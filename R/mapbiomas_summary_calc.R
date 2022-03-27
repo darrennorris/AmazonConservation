@@ -79,7 +79,8 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
            myclass-0.1, myclass+0.1, 1,
            myclass_high, Inf, NA)
     rclmat <- matrix(m, ncol=3, byrow=TRUE)
-    rclass <- classify(rast_stack, rclmat)
+    rclass <- classify(rast_stack, rclmat, include.lowest = FALSE, 
+                       right=FALSE)
     astack <- rclass*cellSize(rast_stack[[1]])
     
     #sum
