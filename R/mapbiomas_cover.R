@@ -14,23 +14,55 @@ bla_state_siglas <- c("AC", "AP", "AM", "MA",
                       "MT", "PA", "TO", "RO", "RR")
 dfstates <- data.frame(bla_state_names, bla_state_siglas)
 
+#State Poligonos
+#sf_states <- sf::st_read("vector//ninestate_poly.shp") 
+#Municipality polygons
+longname <- "vector//brazil_ninestate_municipalities//ninestate_muni.shp"
+sf_munis <- sf::st_read(longname)
+
+#annual coverage
+#"1600303"
+# zeros are NA http://forum.mapbiomas.ecostage.com.br/t/pixels-com-valor-zero/170/5
+tif_files <- list.files("G:/mapbiomas", pattern = ".tif", full.names = TRUE)
+data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF) %>% 
+  crossing(tif_files) %>% data.frame() -> df_muni_tif
+#df_muni_tif %>% 
+#  filter(SIGLA_UF =="MA") %>% data.frame() -> df_muni_tif_MA 
+#df_muni_tif_MA %>% 
+#  filter(NM_MUN %in% all_of(MA_priority)) -> df_muni_tif_MA_priority
+#df_muni_tif %>% 
+#  filter(SIGLA_UF =="AP") %>% 
+#  data.frame() -> df_muni_tif_AP
+df_muni_tif %>% 
+  filter(SIGLA_UF =="TO", NM_MUN == "Tabocão") %>% 
+  data.frame() -> df_muni_tif_TO
+df_muni_tif %>% 
+  filter(SIGLA_UF =="MT", NM_MUN == "Alta Floresta") %>% 
+  data.frame() -> df_muni_tif_AF
+
+dfmulti <- rbind(df_muni_tif_TO, df_muni_tif_AF)
+
+
+# missing municipality list -----------------------------------------------
+
+
 muni_toget <- c("Afonso Cunha", "Água Doce do Maranhão", "Aldeias Altas", 
                 "Anapurus", "Araioses", "Barão de Grajaú", "Barreirinhas",
                 "Belágua", "Brejo", "Buriti", "Buriti Bravo", 
                 "Caxias", "Chapadinha","Cachoeira Grande", "Codó", "Coroatá", 
-                 "Coelho Neto", "Duque Bacelar","Fortuna", 
- "Humberto de Campos","Gonçalves Dias", "Governador Eugênio Barros", 
- "Governador Luiz Rocha", 
-"Icatu", "Lagoa do Mato","Morros", "Magalhães de Almeida", "Mata Roma", 
-"Matões", "Milagres do Maranhão", "Parnarama", "Paulino Neves",
-"Paraibano", "Pastos Bons", "Pirapemas", "Primeira Cruz",
-"Presidente Juscelino", "Presidente Vargas", "São João do Sóter", 
-"Santa Quitéria do Maranhão", "Santana do Maranhão", 
-"Santo Amaro do Maranhão", "São Benedito do Rio Preto", 
-"São Bernardo", "São Francisco do Maranhão", 
-"São João dos Patos", "Sucupira do Riachão", 
-"Senador Alexandre Costa", "Timbiras", "Timon", "Tutóia", 
-"Urbano Santos", "Vargem Grande")
+                "Coelho Neto", "Duque Bacelar","Fortuna", 
+                "Humberto de Campos","Gonçalves Dias", "Governador Eugênio Barros", 
+                "Governador Luiz Rocha", 
+                "Icatu", "Lagoa do Mato","Morros", "Magalhães de Almeida", "Mata Roma", 
+                "Matões", "Milagres do Maranhão", "Parnarama", "Paulino Neves",
+                "Paraibano", "Pastos Bons", "Pirapemas", "Primeira Cruz",
+                "Presidente Juscelino", "Presidente Vargas", "São João do Sóter", 
+                "Santa Quitéria do Maranhão", "Santana do Maranhão", 
+                "Santo Amaro do Maranhão", "São Benedito do Rio Preto", 
+                "São Bernardo", "São Francisco do Maranhão", 
+                "São João dos Patos", "Sucupira do Riachão", 
+                "Senador Alexandre Costa", "Timbiras", "Timon", "Tutóia", 
+                "Urbano Santos", "Vargem Grande")
 
 MA_priority <- c("Aldeias Altas",
                  "Barreirinhas",
@@ -42,28 +74,10 @@ MA_priority <- c("Aldeias Altas",
                  "São Benedito do Rio Preto",
                  "Urbano Santos"
 )
-#State Poligonos
-sf_states <- sf::st_read("vector//ninestate_poly.shp") 
-#Municipality polygons
-longname <- "vector//brazil_ninestate_municipalities//ninestate_muni.shp"
-sf_munis <- sf::st_read(longname)
 
-#annual coverage
-"1600303"
-# zeros are NA http://forum.mapbiomas.ecostage.com.br/t/pixels-com-valor-zero/170/5
-tif_files <- list.files("G:/mapbiomas", pattern = ".tif", full.names = TRUE)
-data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF) %>% 
-  crossing(tif_files) %>% data.frame() -> df_muni_tif
-df_muni_tif %>% 
-  filter(SIGLA_UF =="MA") %>% data.frame() -> df_muni_tif_MA 
-df_muni_tif_MA %>% 
-  filter(NM_MUN %in% all_of(MA_priority)) -> df_muni_tif_MA_priority
-df_muni_tif %>% 
-  filter(SIGLA_UF =="TO", NM_MUN == "Tabocão") %>% 
-  data.frame() -> df_muni_tif_TO
-df_muni_tif %>% 
-  filter(SIGLA_UF =="AP") %>% 
-  data.frame() -> df_muni_tif_AP
+# dev function using extract ----------------------------------------------
+
+
 #7:08
 mapbiomas_summary <- function(x){
 
@@ -111,6 +125,10 @@ plot(crop(rast("E:\\mapbiomas\\brasil_coverage_1985.tif"), e1))
 
 rast("G:\\mapbiomas\\brasil_coverage_1986.tif") %>% 
   crop(e2) %>% plot()
+
+
+# notes -------------------------------------------------------------------
+
 
 # raster value legend and colour map for mapbioas v6
 mapvals <- read_excel("mapbiomas_6_legend.xlsx")
