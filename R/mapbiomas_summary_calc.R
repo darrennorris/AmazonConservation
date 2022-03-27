@@ -4,13 +4,14 @@
 #' @title Land cover area summary using MapBiomas.
 #' @param x Dataframe including locations for raster files.
 #' @param large_polygon Sf object holding spatial polygons.
+#' @param Logical should raster be reprojected for area calculations.
 #' 
 #' @description Provides a summary of land cover using annual Mapbiomas coverage. 
 #' This function serves as a code template and 
 #' could be adapted for polygons of farms and river basins
 #'
 #' @return A text file with annual totals for cover classes. 
-#' Also a text log file with process timing. Text files are tab separated.
+#' Also a text log file with process timing. Text files are .csv.
 #' 
 #' @import sf
 #' @import plyr
@@ -41,7 +42,7 @@
 #'             .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
 #'             .parallel = TRUE)            
 #' }
-mapbiomas_summary_calc <- function(x, large_polygon = NA){
+mapbiomas_summary_calc <- function(x, large_polygon = NA, project_area = NA){
   #packages
   library(plyr)
   library(magrittr)
@@ -63,14 +64,18 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
   e2 <- ext(vect(sf_muni))
   rtest_mask <- mask(x = crop(rtest, e2), 
                             mask = vect(sf_muni))
-  NAflag(rtest_mask) <- 0
+  #Calculate area for cover classes
+  if(!is.na(project_area)){
+  #reproject for area calculations
+  new_crs <- "+proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60 +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs"
+  rtest_mask <- project(rtest_mask, new_crs, method = "near")
   
   #calculate area of different cover classes. Cell size for lat/long cells.
   #Unique cover class values from all years
   class_vec <- as.numeric(na.omit(c(as.matrix(terra::unique(rtest_mask)))))
   cvals <- unique(class_vec)
   dfcvals <- data.frame(class_values = cvals, class_ref = cvals)
-  #Fuction to seperatte classes and sum area
+  #Fuction to separate classes and sum area
   cover_sum <- function(x, rast_stack = NA){
     myclass <- x$class_ref
     myclass_low <- myclass -0.1
@@ -83,12 +88,12 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
     rclass <- classify(rast_stack, rclmat, include.lowest = FALSE, 
                        right=FALSE)
     rm("rast_stack")
-    astack <- rclass*cellSize(rclass[[1]])
+    cell_area <- res(rclass)[1] * res(rclass)[2]
+    rclass <- rclass*cell_area
     
     #sum
-    class_area <- global(astack, fun="sum",  na.rm=TRUE)
+    class_area <- global(rclass, fun="sum",  na.rm=TRUE)
     class_area$tif_ref <- row.names(class_area)
-    rm("astack")
     rm("rclass")
     row.names(class_area) <- NULL
     class_area %>% mutate(year = substr(tif_ref,17,20), 
@@ -99,7 +104,44 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA){
                    rast_stack = rtest_mask)
   rm("rtest_mask")
   rm("large_polygon")
-  rm("sf_muni")
+  rm("sf_muni")}else{
+    #calculate area of different cover classes. Cell size for lat/long cells.
+    #Unique cover class values from all years
+    class_vec <- as.numeric(na.omit(c(as.matrix(terra::unique(rtest_mask)))))
+    cvals <- unique(class_vec)
+    dfcvals <- data.frame(class_values = cvals, class_ref = cvals)
+    #Fuction to separate classes and sum area
+    cover_sum <- function(x, rast_stack = NA){
+      myclass <- x$class_ref
+      myclass_low <- myclass -0.1
+      myclass_high <- myclass +0.1
+      m <- c(-Inf, myclass_low, NA,
+             myclass-0.1, myclass+0.1, 1,
+             myclass_high, Inf, NA)
+      rclmat <- matrix(m, ncol=3, byrow=TRUE)
+      rclmat <- matrix(m, ncol=3, byrow=TRUE)
+      rclass <- classify(rast_stack, rclmat, include.lowest = FALSE, 
+                         right=FALSE)
+      rm("rast_stack")
+      rclass <- rclass*cellSize(rclass[[1]])
+      
+      #sum
+      class_area <- global(rclass, fun="sum",  na.rm=TRUE)
+      class_area$tif_ref <- row.names(class_area)
+      rm("rclass")
+      row.names(class_area) <- NULL
+      class_area %>% mutate(year = substr(tif_ref,17,20), 
+                            area_ha = sum/10000) %>% data.frame() -> class_area
+      class_area
+    }
+    dfcover <- ddply(dfcvals, .(class_values), .fun = cover_sum, 
+                     rast_stack = rtest_mask)
+    rm("rtest_mask")
+    rm("large_polygon")
+    rm("sf_muni")
+    
+  }
+  
   #organise for export
   dfout <- data.frame(CD_MUN = polygon_id, 
                       dfcover[, c('class_values', 'year', 'area_ha')])

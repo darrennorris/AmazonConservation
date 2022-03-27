@@ -7,12 +7,6 @@ library(terra)
 library(sf)
 library(readxl)
 memory.limit(30000)
-#Basic reference vectors
-bla_state_names <- c("Acre", "Amapá", "Amazonas", "Maranhão", 
-                     "Mato Grosso", "Pará", "Tocantins", "Rondônia", "Roraima")
-bla_state_siglas <- c("AC", "AP", "AM", "MA", 
-                      "MT", "PA", "TO", "RO", "RR")
-dfstates <- data.frame(bla_state_names, bla_state_siglas)
 
 #State Poligonos
 #sf_states <- sf::st_read("vector//ninestate_poly.shp") 
@@ -55,6 +49,7 @@ source("R/mapbiomas_summary_calc.R")
 #run 
 plyr::a_ply(df_muni_tif_TO, .margins = 1,
              .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
+            project_area = NA,
              .parallel = TRUE)            
 
 read.csv("mapbiomas_cover_log.csv") %>% 
