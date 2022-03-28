@@ -134,6 +134,36 @@ length(unique(df_muni_small$CD_MUN)) # 436
 plyr::a_ply(df_muni_small, .margins = 1,
             .fun = mapbiomas_summary_calc, large_polygon = sf_munis) 
 
+rbind(read.csv("mapbiomas_cover_log_01.csv"), 
+      read.csv("mapbiomas_cover_log_02.csv"), 
+      read.csv("mapbiomas_cover_log_03.csv")
+) %>% 
+  group_by(CD_MUN, AREA_KM2) %>% 
+  summarise(time_minutes = sum(time_taken_min), 
+            year_count = n()) %>% 
+  ggplot(aes(y=time_minutes, x = AREA_KM2)) + 
+  geom_jitter() + stat_smooth(method = "gam")
+
+#update muni list
+df_muni_tif %>% 
+  left_join(rbind(read.csv("mapbiomas_cover_01.csv"), 
+                  read.csv("mapbiomas_cover_02.csv"), 
+                  read.csv("mapbiomas_cover_03.csv")
+  )%>% 
+    group_by(CD_MUN, year) %>% 
+    summarise(count_class = n()) %>%
+    mutate(CD_MUN = as.character(CD_MUN), 
+           ayear = as.character(year)) 
+  ) %>% filter(is.na(count_class)) %>% 
+  select(CD_MUN, ayear) %>% left_join(df_muni_tif) -> df_muni_todo
+saveRDS(df_muni_todo, "df_muni_todo.RDS")
+df_muni_todo <- readRDS("df_muni_todo.RDS")
+df_muni_todo %>% pull(AREA_KM2) %>% unique() %>% sort
+#436 municipalities * 36 years = 15696, 11:42
+df_muni_todo %>% filter(AREA_KM2 <3000) %>% 
+  arrange(desc(AREA_KM2), ayear) %>% data.frame() -> df_muni_small
+length(unique(df_muni_small$CD_MUN)) # 433
+
 
 #to 
 my_list <- split(df_muni_missing_02, f = df_muni_missing_02$aid)
