@@ -164,6 +164,9 @@ df_muni_todo %>% filter(AREA_KM2 <3000) %>%
   arrange(desc(AREA_KM2), ayear) %>% data.frame() -> df_muni_small
 length(unique(df_muni_small$CD_MUN)) # 433
 
+#run 
+plyr::a_ply(df_muni_small, .margins = 1,
+            .fun = mapbiomas_summary_calc, large_polygon = sf_munis) 
 
 #to 
 my_list <- split(df_muni_missing_02, f = df_muni_missing_02$aid)
