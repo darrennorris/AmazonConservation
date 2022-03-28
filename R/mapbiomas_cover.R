@@ -18,7 +18,7 @@ sf_munis <- sf::st_read(longname)
 #annual coverage
 #"1600303"
 # zeros are NA http://forum.mapbiomas.ecostage.com.br/t/pixels-com-valor-zero/170/5
-tif_files <- list.files("G:/mapbiomas", pattern = ".tif", full.names = TRUE)
+tif_files <- list.files("E:/mapbiomas", pattern = ".tif", full.names = TRUE)
 data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF, AREA_KM2) %>% 
   crossing(tif_files) %>% 
   mutate(ayear = str_sub(tif_files,-8,-5)) %>% 
@@ -79,8 +79,24 @@ read.csv("mapbiomas_cover.csv") %>%
   group_by(CD_MUN, year) %>% summarise(tot_ha = sum(area_ha)) %>% 
   arrange(tot_ha)
 
-#to help checking
-lapply(, mapbiomas_summary_calc, large_polygon = sf_munis)
+#Update and run again
+df_muni_missing %>% 
+  left_join(read.csv("mapbiomas_cover.csv") %>% 
+              group_by(CD_MUN, year) %>% 
+              summarise(count_class = n()) %>%
+              mutate(CD_MUN = as.character(CD_MUN), 
+                     ayear = as.character(year)) 
+  ) %>% filter(is.na(count_class)) %>% 
+  select(CD_MUN, ayear) %>% left_join(df_muni_tif) -> df_muni_missing_02
+
+#run 
+plyr::a_ply(df_muni_missing_02, .margins = 1,
+            .fun = mapbiomas_summary_calc, large_polygon = sf_munis)  
+
+#to 
+my_list <- split(df_muni_missing_02, f = df_muni_missing_02$aid)
+lapply(my_list$`2100808_2014` , mapbiomas_summary_calc(large_polygon = sf_munis))
+
 
 # missing municipality list -----------------------------------------------
 
