@@ -18,7 +18,7 @@ sf_munis <- sf::st_read(longname)
 #annual coverage
 #"1600303"
 # zeros are NA http://forum.mapbiomas.ecostage.com.br/t/pixels-com-valor-zero/170/5
-tif_files <- list.files("E:/mapbiomas", pattern = ".tif", full.names = TRUE)
+tif_files <- list.files("G:/mapbiomas", pattern = ".tif", full.names = TRUE)
 data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF, AREA_KM2) %>% 
   crossing(tif_files) %>% 
   mutate(ayear = str_sub(tif_files,-8,-5)) %>% 
@@ -81,7 +81,7 @@ read.csv("mapbiomas_cover.csv") %>%
 
 #Update and run again
 df_muni_missing %>% 
-  left_join(read.csv("mapbiomas_cover.csv") %>% 
+  left_join(read.csv("mapbiomas_cover_01.csv") %>% 
               group_by(CD_MUN, year) %>% 
               summarise(count_class = n()) %>%
               mutate(CD_MUN = as.character(CD_MUN), 
@@ -91,7 +91,48 @@ df_muni_missing %>%
 
 #run 
 plyr::a_ply(df_muni_missing_02, .margins = 1,
-            .fun = mapbiomas_summary_calc, large_polygon = sf_munis)  
+            .fun = mapbiomas_summary_calc, large_polygon = sf_munis) 
+
+rbind(read.csv("mapbiomas_cover_log_01.csv"), 
+      read.csv("mapbiomas_cover_log_02.csv")
+               ) %>% 
+  group_by(CD_MUN, AREA_KM2) %>% 
+  summarise(time_minutes = sum(time_taken_min), 
+            year_count = n()) %>% 
+  #pull(year_count) %>% summary() # should be 36
+  arrange(desc(year_count)) #2103208 has duplicates
+
+#upto 3000 km2 ok. After linear increase in time.
+rbind(read.csv("mapbiomas_cover_log_01.csv"), 
+      read.csv("mapbiomas_cover_log_02.csv")
+) %>% 
+  group_by(CD_MUN, AREA_KM2) %>% 
+  summarise(time_minutes = sum(time_taken_min), 
+            year_count = n()) %>% 
+  ggplot(aes(y=time_minutes, x = AREA_KM2)) + 
+  geom_point() + stat_smooth(method = "gam")
+
+#update muni list
+df_muni_tif %>% 
+  left_join(rbind(read.csv("mapbiomas_cover_01.csv"), 
+                  read.csv("mapbiomas_cover_02.csv") 
+                  )%>% 
+              group_by(CD_MUN, year) %>% 
+              summarise(count_class = n()) %>%
+              mutate(CD_MUN = as.character(CD_MUN), 
+                     ayear = as.character(year)) 
+  ) %>% filter(is.na(count_class)) %>% 
+  select(CD_MUN, ayear) %>% left_join(df_muni_tif) -> df_muni_todo
+saveRDS(df_muni_todo, "df_muni_todo.RDS")
+df_muni_todo <- readRDS("df_muni_todo.RDS")
+df_muni_todo %>% pull(AREA_KM2) %>% unique() %>% sort
+
+df_muni_todo %>% filter(AREA_KM2 <3000) %>% data.frame() -> df_muni_small
+
+#run 
+plyr::a_ply(df_muni_small, .margins = 1,
+            .fun = mapbiomas_summary_calc, large_polygon = sf_munis) 
+
 
 #to 
 my_list <- split(df_muni_missing_02, f = df_muni_missing_02$aid)
