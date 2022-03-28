@@ -127,7 +127,8 @@ saveRDS(df_muni_todo, "df_muni_todo.RDS")
 df_muni_todo <- readRDS("df_muni_todo.RDS")
 df_muni_todo %>% pull(AREA_KM2) %>% unique() %>% sort
 
-df_muni_todo %>% filter(AREA_KM2 <3000) %>% data.frame() -> df_muni_small
+df_muni_todo %>% filter(AREA_KM2 <3000) %>% 
+  arrange(desc(AREA_KM2), ayear) %>% data.frame() -> df_muni_small
 
 #run 
 plyr::a_ply(df_muni_small, .margins = 1,
