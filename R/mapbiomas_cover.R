@@ -6,6 +6,7 @@ library(tidyverse)
 library(terra)
 library(sf)
 library(readxl)
+memory.limit()
 memory.limit(30000)
 
 #State Poligonos
@@ -17,7 +18,7 @@ sf_munis <- sf::st_read(longname)
 #annual coverage
 #"1600303"
 # zeros are NA http://forum.mapbiomas.ecostage.com.br/t/pixels-com-valor-zero/170/5
-tif_files <- list.files("E:/mapbiomas", pattern = ".tif", full.names = TRUE)
+tif_files <- list.files("G:/mapbiomas", pattern = ".tif", full.names = TRUE)
 data.frame(sf_munis) %>% select(CD_MUN, NM_MUN, SIGLA_UF, AREA_KM2) %>% 
   crossing(tif_files) %>% 
   mutate(ayear = str_sub(tif_files,-8,-5)) %>% 
@@ -63,14 +64,14 @@ cores
 registerDoParallel(cores=cores)
 source("R/mapbiomas_summary_calc.R")
 #run 
-plyr::a_ply(df_muni_tif_TO, .margins = 1,
+plyr::a_ply(df_muni_missing, .margins = 1,
              .fun = mapbiomas_summary_calc, large_polygon = sf_munis, 
-            project_area = NA,
              .parallel = TRUE)            
 
 read.csv("mapbiomas_cover_log.csv") %>% 
   group_by(CD_MUN, AREA_KM2) %>% 
-  summarise(time_minutes = sum(time_taken_min)) 
+  summarise(time_minutes = sum(time_taken_min), 
+            year_count = n()) 
 #1.82 i.e 24 hours for 800
 #3.52 slower computer 48 hours for 800
 #Make total same across years, compare 1991 and 2019
