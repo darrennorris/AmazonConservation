@@ -62,8 +62,9 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA, project_area = NA){
     st_transform(crs = crs(rtest)) -> sf_muni
   #Crop and mask
   e2 <- ext(vect(sf_muni))
-  rtest_mask <- mask(x = crop(rtest, e2), 
-                            mask = vect(sf_muni))
+  rtest_mask <- mask(x = crop(rtest, e2, snap ="in"), 
+                            mask = vect(sf_muni), touches = TRUE)
+  
   #Calculate area for cover classes
   if(!is.na(project_area)){
   #reproject for area calculations

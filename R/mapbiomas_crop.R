@@ -7,6 +7,8 @@ library(sf)
 library(readxl)
 memory.limit(30000)
 #This way take a very long time for 36 years
+# See options for parallel processing
+# https://www.gis-blog.com/increasing-the-speed-of-raster-processing-with-r-part-23-parallelisation/
 rin <- "E:\\mapbiomas\\brasil_coverage_1985.tif"
 rbig <- terra::rast(rin)
 layer_name <- names(rbig)
