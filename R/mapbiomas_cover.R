@@ -126,10 +126,10 @@ df_muni_tif %>%
 saveRDS(df_muni_todo, "df_muni_todo.RDS")
 df_muni_todo <- readRDS("df_muni_todo.RDS")
 df_muni_todo %>% pull(AREA_KM2) %>% unique() %>% sort
-
+#436 municipalities * 36 years = 15696, 11:42
 df_muni_todo %>% filter(AREA_KM2 <3000) %>% 
   arrange(desc(AREA_KM2), ayear) %>% data.frame() -> df_muni_small
-
+length(unique(df_muni_small$CD_MUN)) # 436
 #run 
 plyr::a_ply(df_muni_small, .margins = 1,
             .fun = mapbiomas_summary_calc, large_polygon = sf_munis) 
