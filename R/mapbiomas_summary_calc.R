@@ -186,4 +186,6 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA, project_area = NA){
                             dec = ".", 
                               row.names = FALSE)
                 }
+  #clear temporary files
+  tmpFiles(current =TRUE, remove = TRUE, old = TRUE)
 }
