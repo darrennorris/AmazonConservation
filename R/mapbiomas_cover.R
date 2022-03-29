@@ -190,7 +190,7 @@ df_muni_todo %>% filter(AREA_KM2 <3000) %>%
 
 source("R/mapbiomas_summary_calc.R")
 #run 
-plyr::a_ply(df_muni_missing, .margins = 1,
+plyr::a_ply(df_muni_small, .margins = 1,
             .fun = mapbiomas_summary_calc, large_polygon = sf_munis) 
 
 
