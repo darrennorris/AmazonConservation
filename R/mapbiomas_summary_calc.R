@@ -143,6 +143,9 @@ mapbiomas_summary_calc <- function(x, large_polygon = NA, project_area = NA){
     
   }
   
+  #clear temporary files
+  tmpFiles(current =TRUE, remove = TRUE)
+  
   #organise for export
   dfout <- data.frame(CD_MUN = polygon_id, 
                       dfcover[, c('class_values', 'year', 'area_ha')])
