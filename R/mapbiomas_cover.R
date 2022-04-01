@@ -194,7 +194,7 @@ df_muni_todo %>% pull(AREA_KM2) %>% unique() %>% sort
 df_muni_todo %>% 
   filter(AREA_KM2 >=3000, AREA_KM2 <4000) %>% 
   arrange(desc(AREA_KM2), ayear) %>% data.frame() -> df_muni_mid4 
-length(unique(df_muni_mid4$CD_MUN)) #60, 2*60/24 = 5 days
+length(unique(df_muni_mid4$CD_MUN)) #60, 2 hours per muni, 2*60/24 = 5 days
 
 source("R/mapbiomas_summary_calc.R")
 #run 
