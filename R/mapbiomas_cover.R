@@ -104,7 +104,11 @@ rbind(read.csv("mapbiomas_cover_log_01.csv"),
 
 #upto 3000 km2 ok. After linear increase in time.
 rbind(read.csv("mapbiomas_cover_log_01.csv"), 
-      read.csv("mapbiomas_cover_log_02.csv")
+      read.csv("mapbiomas_cover_log_02.csv"), 
+      read.csv("mapbiomas_cover_log_03.csv"), 
+      read.csv("mapbiomas_cover_log_04.csv"), 
+      read.csv("mapbiomas_cover_log_05.csv"), 
+      read.csv("mapbiomas_cover_log_06.csv")
 ) %>% 
   group_by(CD_MUN, AREA_KM2) %>% 
   summarise(time_minutes = sum(time_taken_min), 
@@ -173,7 +177,9 @@ df_muni_tif %>%
   left_join(rbind(read.csv("mapbiomas_cover_01.csv"), 
                   read.csv("mapbiomas_cover_02.csv"), 
                   read.csv("mapbiomas_cover_03.csv"), 
-                  read.csv("mapbiomas_cover_04.csv")
+                  read.csv("mapbiomas_cover_04.csv"), 
+                  read.csv("mapbiomas_cover_05.csv"), 
+                  read.csv("mapbiomas_cover_06.csv")
   )%>% 
     group_by(CD_MUN, year) %>% 
     summarise(count_class = n()) %>%
@@ -185,8 +191,10 @@ saveRDS(df_muni_todo, "df_muni_todo.RDS")
 df_muni_todo <- readRDS("df_muni_todo.RDS")
 df_muni_todo %>% pull(AREA_KM2) %>% unique() %>% sort
 #436 municipalities * 36 years = 15696, 11:42
-df_muni_todo %>% filter(AREA_KM2 <3000) %>% 
-  arrange(desc(AREA_KM2), ayear) %>% data.frame() -> df_muni_small 
+df_muni_todo %>% 
+  filter(AREA_KM2 >=3000, AREA_KM2 <4000) %>% 
+  arrange(desc(AREA_KM2), ayear) %>% data.frame() -> df_muni_mid4 
+length(unique(df_muni_mid4$CD_MUN)) #60, 2*60/24 = 5 days
 
 source("R/mapbiomas_summary_calc.R")
 #run 
