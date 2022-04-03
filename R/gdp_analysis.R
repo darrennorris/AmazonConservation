@@ -103,6 +103,12 @@ var_lags <- c("lag01_lossarea_per", "lag02_lossarea_per", "lag03_lossarea_per",
               "lag07_lossarea_km2", "lag08_lossarea_km2", "lag09_lossarea_km2", 
               "lag10_lossarea_km2")
 
+# Exclude new muni and state capitals
+# Missing 4 (all formally installed after 2002)
+df_muni_cagr %>% filter(codmun7 == 5104526) #Ipiranga do Norte
+df_muni_cagr %>% filter(codmun7 == 5104542) #Itanhangá
+df_muni_cagr %>% filter(codmun7 == 1504752) # Mojuí dos Campos
+df_muni_cagr %>% filter(codmun7 == 5104542) #Fortaleza do Tabocão
 df_muni_year %>% 
   filter(!is.na(tot_loss_percent), !is.na(school_per1000), 
          !is.na(superior_course_per1000), !is.na(pg_per1000), 
