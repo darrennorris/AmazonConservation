@@ -486,28 +486,14 @@ dfmapbiomas_cover_muni %>%
                                             forestcover_2013_km2)), 
          forestcover_2019med_km2 = median(c(forestcover_2018_km2, 
                                             forestcover_2019_km2, 
-                                            forestcover_2020_km2))) -> df_muni_cover
+                                            forestcover_2020_km2))) %>% 
+  #Include muni codes
+ left_join(data.frame(dfstates), 
+                            by = c("state" = "bla_state_names")) %>% 
+  left_join(data.frame(sf_ninestate_muni), 
+            by = c("bla_state_siglas" = "SIGLA_UF", 
+                   "city" = "NM_MUN")) -> df_muni_cover
 
-# Export
-df_gdppop_muni_02a19 %>% 
-  group_by(uf_sigla, uf) %>% 
-  summarise(count_muni = length(unique(codmun7))) %>% right_join(
-    data.frame(sf_ninestate_muni), by = c("uf_sigla" = "SIGLA_UF")
-  ) %>% select(uf_sigla, uf, CD_MUN, NM_MUN, AREA_KM2) %>% 
-  crossing(year = 2002:2019) %>% left_join(df_muni_cover, 
-    by = c( "uf" = "state", "NM_MUN" = "city") 
-  ) %>% 
-  mutate(forestcover_1985_percent_muni = (forestcover_1985_km2 /AREA_KM2)*100, 
-         forestcover_2002_percent_muni = (forestcover_2002_km2 /AREA_KM2)*100, 
-         forestcover_2012_percent_muni = (forestcover_2012_km2 /AREA_KM2)*100,
-         forestcover_2019_percent_muni = (forestcover_2019_km2 /AREA_KM2)*100, 
-         forestcover_2002_percent_85 = (forestcover_2002_km2 /forestcover_1985_km2)*100, 
-         forestcover_2012_percent_85 = (forestcover_2012_km2 /forestcover_1985_km2)*100, 
-         forestcover_2019_percent_85 = (forestcover_2019_km2 /forestcover_1985_km2)*100) %>% 
-  arrange(uf_sigla, NM_MUN) %>% 
-  #filter(year==2019) %>%
-  #write.csv("muni_fixedcover.csv", row.names = FALSE)
-  write.csv("muni_fixedcover_year.csv", row.names = FALSE)
 
 #cover for missing municipalities
 #Missing cover data
@@ -519,11 +505,16 @@ missing_munis <- c("2100105", "2100154", "2100303", "2100808", "2100907",
                    "2110278", "2110401", "2110609", "2110906", "2111102", 
                    "2111953", "2112209", "2112506", "2112605", "1708254"
 )
+data.frame(sf_ninestate_muni) %>% select(!geometry) %>% 
+  filter(CD_MUN %in% all_of(missing_munis)) %>% 
+  write.csv("missing_munis.csv")
+
 #check have all data (35 municipalites and 36 years)
 rbind(read.csv("mapbiomas_cover_01.csv"), 
       read.csv("mapbiomas_cover_02.csv")) %>% 
   filter(CD_MUN %in% all_of(missing_munis)) %>%
   distinct() %>% pull(CD_MUN) %>% unique() %>% length()
+#
 rbind(read.csv("mapbiomas_cover_01.csv"), 
       read.csv("mapbiomas_cover_02.csv")) %>% 
   filter(CD_MUN %in% all_of(missing_munis)) %>%
@@ -547,49 +538,78 @@ rbind(read.csv("mapbiomas_cover_01.csv"),
   rowwise() %>%
   mutate(forestcover = median(c(forestcover_km2, lag_km, lead_km)), 
          year = replace(year, year == 1986, 1985)) %>% 
-  mutate(year = paste(year, "_km2", sep=""), 
+  mutate(year = paste(year, "med_km2", sep=""), 
          CD_MUN = as.character(CD_MUN)) %>%
   select(CD_MUN, year, forestcover) %>% 
   pivot_wider(names_from = year, values_from = forestcover, 
               names_prefix = "forestcover_") %>% 
   mutate(forestcover_2002_percent_85 = 
-           (forestcover_2002_km2 /forestcover_1985_km2)*100, 
+           (forestcover_2002med_km2 /forestcover_1985med_km2)*100, 
          forestcover_2012_percent_85 = 
-           (forestcover_2012_km2 /forestcover_1985_km2)*100, 
+           (forestcover_2012med_km2 /forestcover_1985med_km2)*100, 
          forestcover_2019_percent_85 = 
-           (forestcover_2019_km2 /forestcover_1985_km2)*100) -> df_muni_cover_new
+           (forestcover_2019med_km2 /forestcover_1985med_km2)*100) -> df_muni_cover_new
 
 #combine old an new
 rbind(
 df_muni_cover_new %>% left_join(data.frame(sf_ninestate_muni)) %>% 
-  select(CD_MUN, forestcover_1985_km2, forestcover_2002_percent_85, 
-         forestcover_2012_percent_85, forestcover_2019_percent_85),
+  left_join(
 data.frame(sf_ninestate_muni) %>% 
-  select(SIGLA_UF, CD_MUN, NM_MUN) %>% left_join(
-    dfstates, by =c("SIGLA_UF" = "bla_state_siglas")) %>%
-  right_join(df_muni_cover %>% 
+  select(SIGLA_UF, CD_MUN, NM_MUN)) %>% left_join(
+    dfstates, by =c("SIGLA_UF" = "bla_state_siglas")) %>% 
+  select(CD_MUN, forestcover_1985med_km2, forestcover_2002_percent_85, 
+         forestcover_2012_percent_85, forestcover_2019_percent_85, 
+         forestcover_2002med_km2, forestcover_2012med_km2, 
+         forestcover_2019med_km2),
+#older version from Rhett
+ df_muni_cover %>% 
   mutate(forestcover_2002_percent_85 = 
-           (forestcover_2002_km2 /forestcover_1985_km2)*100, 
+           (forestcover_2002med_km2 /forestcover_1985med_km2)*100, 
          forestcover_2012_percent_85 = 
-           (forestcover_2012_km2 /forestcover_1985_km2)*100, 
+           (forestcover_2012med_km2 /forestcover_1985med_km2)*100, 
          forestcover_2019_percent_85 = 
-           (forestcover_2019_km2 /forestcover_1985_km2)*100) %>% 
-  select(state, city, forestcover_1985_km2, forestcover_2002_percent_85, 
-         forestcover_2012_percent_85, forestcover_2019_percent_85) , 
-by = c( "bla_state_names" = "state", "NM_MUN" = "city")) %>% 
-  select(CD_MUN, forestcover_1985_km2, forestcover_2002_percent_85, 
-         forestcover_2012_percent_85, forestcover_2019_percent_85)
-) -> df_cover_combined
-
+           (forestcover_2019med_km2 /forestcover_1985med_km2)*100 
+         ) %>%
+  select(CD_MUN, forestcover_1985med_km2, forestcover_2002_percent_85, 
+         forestcover_2012_percent_85, forestcover_2019_percent_85, 
+         forestcover_2002med_km2, forestcover_2012med_km2, 
+         forestcover_2019med_km2) 
+) -> df_cover_combined #809
+length(unique(df_cover_combined$CD_MUN))
 data.frame(sf_ninestate_muni) %>% select(!c(geometry, AREA_KM2)) %>% 
   left_join(df_cover_combined) -> df_cover_combined
 #### 
 df_cover_combined %>%
 crossing(year = 2002:2019) %>% 
   arrange(SIGLA_UF, NM_MUN) %>% 
+  filter(year==2019) %>% 
+  write.csv("muni_fixedcover_full.csv", row.names = FALSE)
   write.csv("muni_fixedcover_year_full.csv", row.names = FALSE)
 
 # Forest loss
+#Transition from cover change
+  rbind(read.csv("mapbiomas_cover_01.csv"), 
+        read.csv("mapbiomas_cover_02.csv")) %>% 
+    filter(CD_MUN %in% all_of(missing_munis)) %>%
+    distinct() %>% 
+    filter(class_values %in% c(3, 4)) %>% 
+    mutate(area_km2 = area_ha/100) %>%
+    group_by(CD_MUN, year) %>% 
+    summarise(forestcover_km2 = sum(area_km2)) %>% 
+    ungroup() %>%
+    group_by(CD_MUN) %>%
+    mutate(lag_km = lag(forestcover_km2, order_by=year)) %>% 
+    mutate(change_km2 = lag_km - forestcover_km2) %>% 
+    #pull(change_km2) %>% summary() 
+    filter(change_km2 <0) %>% arrange(change_km2)
+  
+  %>%
+    ungroup() %>% filter(year %in% c(1986, 2002, 2012, 2019)) %>% 
+    rowwise() %>%
+    mutate(forestcover = median(c(forestcover_km2, lag_km, lead_km)), 
+           year = replace(year, year == 1986, 1985)) 
+  
+  
 # Transition as a proportion of municipality area.
 #Mapbiomas
 dfmapbiomas_transition_muni <- read_excel("data//Mapbiomas-Brazil-transition.xlsx", 
