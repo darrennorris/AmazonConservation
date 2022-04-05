@@ -36,7 +36,7 @@ get_files <- function(folder_name = NA) {
     ungroup() -> df_muni_tif
   return(df_muni_tif)
 }
-infolder <- "mapbiomas_ge/state_cover/RR"
+infolder <- "mapbiomas_ge/state_cover/RO"
 df_muni_tif <- get_files(folder_name = infolder)
 #update
 df_muni_tif %>% 
@@ -87,7 +87,7 @@ state_proj <- function(x, state_id = NA,
   textout <- paste(outfile, ": ", endtime, sep="")
   print(textout)
 }
-#run 14:24
+#run 8:38
 plyr::a_ply(df_muni_tif[1, ], .margins = 1, 
             .fun = state_proj)
 
